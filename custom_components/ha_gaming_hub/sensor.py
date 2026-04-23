@@ -91,6 +91,7 @@ class FreeGamesValueSensor(CoordinatorEntity, SensorEntity):
     _attr_unique_id = "gaming_hub_free_games_value"
     _attr_icon = "mdi:cash"
     _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_native_unit_of_measurement = "USD"
     _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, coordinator, entry_id: str) -> None:
@@ -98,13 +99,5 @@ class FreeGamesValueSensor(CoordinatorEntity, SensorEntity):
         self._attr_device_info = _device_info(entry_id)
 
     @property
-    def native_unit_of_measurement(self) -> str:
-        return self.hass.config.currency
-
-    @property
     def native_value(self) -> float:
         return self.coordinator.data.get("total_value", 0.0)
-
-    @property
-    def extra_state_attributes(self) -> dict:
-        return {"source_currency": "USD"}
