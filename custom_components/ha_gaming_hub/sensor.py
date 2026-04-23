@@ -104,3 +104,7 @@ class FreeGamesValueSensor(CoordinatorEntity, SensorEntity):
     @property
     def native_value(self) -> float:
         return self.coordinator.data.get("total_value", 0.0)
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        return {"source_currency": "USD"}

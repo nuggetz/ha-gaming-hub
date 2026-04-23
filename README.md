@@ -38,7 +38,8 @@ A HACS custom integration for Home Assistant that brings gaming data into your s
 | `sensor.gaming_hub_free_games_value` | Sensor | Total value of current free games (in your HA currency) |
 | `calendar.gaming_hub_free_games` | Calendar | All free games as calendar events, with claim deadlines |
 
-> **Note:** The value sensor uses prices reported by GamerPower in USD. The unit of measurement reflects your Home Assistant currency setting, but no currency conversion is applied.
+> **Note — currency:** values are sourced from GamerPower in USD. The unit of measurement symbol reflects your Home Assistant locale setting, but no currency conversion is applied. The `source_currency: USD` attribute on the value sensor makes this explicit.
+> **Note — entity IDs:** if your entities show up as `sensor.free_games_available` instead of `sensor.gaming_hub_free_games_count`, HA has cached the old entity IDs in its registry. Go to **Settings → Entities**, search for "free games", delete the 3 old entries, then reload the integration. The correct IDs will be created on the next load.
 
 ### Data sources
 
