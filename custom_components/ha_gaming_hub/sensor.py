@@ -66,23 +66,36 @@ class FreeGamesCountSensor(CoordinatorEntity, SensorEntity):
             "line4_default": "$genres",
             "icon": "mdi:gamepad-variant",
         }
-        entries = []
+        media_entries = []
+        nintendo_entries = []
         for g in games:
             end_dt = g.get("end_date")
             worth = g.get("worth")
-            entries.append({
+            cover = g.get("cover", "")
+            media_entries.append({
                 "title": g.get("title", ""),
                 "rating": g.get("platform", ""),
                 "price": "FREE" + (f" (${worth:.2f} value)" if worth else ""),
                 "release": f"Expires {end_dt.strftime('%-d %b %Y')}" if end_dt else "",
                 "genres": g.get("type", ""),
                 "airdate": end_dt.strftime("%Y-%m-%d") if end_dt else "unknown",
-                "box_art_url": g.get("cover", ""),
-                "fanart": g.get("cover", ""),
-                "poster": g.get("poster", g.get("cover", "")),
+                "box_art_url": cover,
+                "fanart": cover,
+                "poster": g.get("poster", cover),
                 "deep_link": g.get("url", ""),
             })
-        return {"data": [header] + entries}
+            nintendo_entries.append({
+                "title": g.get("title", ""),
+                "box_art_url": cover,
+                "backgroundart": cover,
+                "sale_price": "Free",
+                "normal_price": f"${worth:.2f}" if worth else "Free",
+                "percent_off": 100,
+            })
+        return {
+            "data": [header] + media_entries,
+            "on_sale": nintendo_entries,
+        }
 
 
 class FreeGamesValueSensor(CoordinatorEntity, SensorEntity):

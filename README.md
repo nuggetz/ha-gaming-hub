@@ -50,7 +50,19 @@ A HACS custom integration for Home Assistant that brings gaming data into your s
 
 The `sensor.gaming_hub_free_games_count` entity exposes a `data` attribute formatted to be compatible with the [Upcoming Media Card](https://github.com/custom-cards/upcoming-media-card).
 
-#### Option A — Upcoming Media Card (recommended, requires HACS frontend install)
+#### Option A — Nintendo Wishlist Card (best looking, requires HACS frontend install)
+
+Install **Nintendo Wishlist Card** from HACS → Frontend, then add this card to your dashboard:
+
+```yaml
+type: custom:nintendo-wishlist-card
+entity: sensor.gaming_hub_free_games_count
+title: Free Games
+```
+
+Displays cover art, title, and "Free / $X.XX value" in the same style as the Nintendo Switch wishlist.
+
+#### Option B — Upcoming Media Card (requires HACS frontend install)
 
 Install **Upcoming Media Card** from HACS → Frontend, then add this card to your dashboard:
 
@@ -61,9 +73,9 @@ title: Free Games
 max: 10
 ```
 
-This will display game cover art, platform, price info, and claim deadline in a media-style grid.
+Displays cover art, platform, expiry date, and claim link in a media-style grid.
 
-#### Option B — Built-in Markdown Card (no extra dependencies)
+#### Option C — Built-in Markdown Card (no extra dependencies)
 
 Use a standard Markdown card with a Jinja2 template to render the list:
 
@@ -96,21 +108,36 @@ content: >
   {% endfor %}
 ```
 
-### `data` attribute format
+### Attribute formats
 
-Each entry in `games[1:]` (skip the first item which is the header template) contains:
+The sensor exposes two attributes so it works with multiple cards out of the box.
+
+#### `data` — for Upcoming Media Card
+
+`data[0]` is the header template item. Actual games start at `data[1:]`.
 
 | Field | Description |
 | ----- | ----------- |
 | `title` | Game title |
 | `rating` | Platform (e.g. `Epic Games`, `PC, Steam`) |
 | `price` | `FREE` or `FREE ($X.XX value)` |
-| `release` | Human-readable expiry date, e.g. `Expires 30 Apr 2026` |
+| `release` | Human-readable expiry, e.g. `Expires 30 Apr 2026` |
 | `genres` | Content type: `game`, `dlc`, `loot`, `other` |
 | `airdate` | Expiry date as `YYYY-MM-DD` (or `unknown`) |
 | `box_art_url` | Wide cover art URL |
 | `poster` | Portrait cover art URL (falls back to wide) |
-| `deep_link` | Direct URL to the store page / claim page |
+| `deep_link` | Direct URL to the store / claim page |
+
+#### `on_sale` — for Nintendo Wishlist Card
+
+| Field | Description |
+| ----- | ----------- |
+| `title` | Game title |
+| `box_art_url` | Cover art URL |
+| `backgroundart` | Wide art URL (same as cover) |
+| `sale_price` | Always `"Free"` |
+| `normal_price` | `"$X.XX"` if known from GamerPower, otherwise `"Free"` |
+| `percent_off` | Always `100` |
 
 ---
 
