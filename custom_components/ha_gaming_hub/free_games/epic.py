@@ -94,6 +94,7 @@ class EpicClient:
                     results.append({
                         "title": title,
                         "platform": "Epic Games",
+                        "store": "Epic Games",
                         "type": "game",
                         "start_date": _parse_dt(offer.get("startDate")),
                         "end_date": _parse_dt(offer.get("endDate")),
@@ -109,6 +110,7 @@ class EpicClient:
                     results.append({
                         "title": title,
                         "platform": "Epic Games",
+                        "store": "Epic Games",
                         "type": "game",
                         "start_date": _parse_dt(offer.get("startDate")),
                         "end_date": _parse_dt(offer.get("endDate")),

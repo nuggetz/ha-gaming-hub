@@ -5,6 +5,21 @@ from ..const import GAMERPOWER_API_URL
 
 _LOGGER = logging.getLogger(__name__)
 
+_STORE_PRIORITY = [
+    "Steam", "GOG", "Itch.io", "Ubisoft Connect", "Origin",
+    "Battle.net", "Xbox", "PlayStation", "Android", "iOS",
+]
+
+
+def _primary_store(platforms_str: str) -> str:
+    low = platforms_str.lower()
+    for store in _STORE_PRIORITY:
+        if store.lower() in low:
+            return store
+    parts = [p.strip() for p in platforms_str.split(",") if p.strip()]
+    return parts[0] if parts else "Free"
+
+
 _TYPE_MAP = {
     "game": "game",
     "dlc": "dlc",
@@ -74,6 +89,7 @@ class GamerPowerClient:
                 "worth": _parse_worth(item.get("worth")),
                 "cover": image,
                 "poster": image,
+                "store": _primary_store(platforms_str),
                 "status": "current",
             })
 

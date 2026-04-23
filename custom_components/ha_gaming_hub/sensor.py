@@ -89,7 +89,7 @@ class FreeGamesCountSensor(CoordinatorEntity, SensorEntity):
                 "box_art_url": cover,
                 "backgroundart": cover,
                 "sale_price": "Free",
-                "normal_price": f"${worth:.2f}" if worth else g.get("platform", "Free"),
+                "normal_price": f"${worth:.2f}" if worth else g.get("store", g.get("platform", "Free")),
                 "percent_off": 100,
             })
         return {
