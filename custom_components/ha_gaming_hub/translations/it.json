@@ -1,0 +1,55 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "HA Gaming Hub — Selezione moduli",
+        "description": "Scegli quali moduli abilitare. Puoi selezionarne più di uno.",
+        "data": {
+          "modules": "Moduli"
+        }
+      },
+      "price_tracker": {
+        "title": "Price Tracker — Configurazione",
+        "description": "Configura il modulo Price Tracker. La chiave ITAD è opzionale; lascia vuoto per usare solo CheapShark.",
+        "data": {
+          "itad_api_key": "Chiave API IsThereAnyDeal (opzionale)",
+          "scan_interval_price_tracker": "Intervallo di aggiornamento (secondi)"
+        }
+      },
+      "steam": {
+        "title": "Presence — Configurazione Steam",
+        "description": "Inserisci la tua chiave API Steam e gli Steam ID o vanity URL da monitorare.",
+        "data": {
+          "steam_api_key": "Chiave API Steam",
+          "steam_ids": "Steam ID / Vanity URL"
+        }
+      },
+      "xbox": {
+        "title": "Presence — Configurazione Xbox",
+        "description": "La configurazione Xbox sarà completata dopo il salvataggio tramite Options Flow. Clicca Invia per continuare.",
+        "data": {}
+      },
+      "summary": {
+        "title": "Riepilogo configurazione",
+        "description": "Moduli: {modules}\nChiave IsThereAnyDeal: {itad_key}\nChiave Steam: {steam_key}\n\nClicca Invia per salvare.",
+        "data": {}
+      }
+    },
+    "error": {
+      "no_modules_selected": "Seleziona almeno un modulo.",
+      "steam_key_required": "La chiave API Steam è obbligatoria quando il modulo Presence è abilitato."
+    },
+    "abort": {
+      "already_configured": "HA Gaming Hub è già configurato."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "HA Gaming Hub — Opzioni",
+        "description": "La configurazione delle opzioni (watchlist, account, intervalli di polling) sarà disponibile in una versione futura.",
+        "data": {}
+      }
+    }
+  }
+}
