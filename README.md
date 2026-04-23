@@ -48,7 +48,7 @@ A HACS custom integration for Home Assistant that brings gaming data into your s
 
 ### Displaying free games in the dashboard
 
-The `sensor.gaming_hub_free_games_count` entity exposes a `data` attribute formatted to be compatible with the [Upcoming Media Card](https://github.com/custom-cards/upcoming-media-card).
+The `sensor.gaming_hub_free_games_count` entity exposes two attributes so it works out of the box with multiple cards: `data` for the [Upcoming Media Card](https://github.com/custom-cards/upcoming-media-card) and `on_sale` for the [Nintendo Wishlist Card](https://github.com/custom-cards/nintendo-wishlist-card).
 
 #### Option A — Nintendo Wishlist Card (best looking, requires HACS frontend install)
 
