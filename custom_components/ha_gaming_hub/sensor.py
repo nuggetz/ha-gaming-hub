@@ -6,7 +6,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from ..const import DOMAIN, MODULE_FREE_GAMES
+from .const import DOMAIN, MODULE_FREE_GAMES
 
 _LOGGER = logging.getLogger(__name__)
 
