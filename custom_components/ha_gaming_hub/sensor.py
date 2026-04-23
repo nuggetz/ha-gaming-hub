@@ -44,19 +44,31 @@ class FreeGamesCountSensor(CoordinatorEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict:
         games = self.coordinator.data.get("current", [])
-        return {
-            "games": [
-                {
-                    "title": g.get("title"),
-                    "platform": g.get("platform"),
-                    "type": g.get("type"),
-                    "end_date": g["end_date"].isoformat() if g.get("end_date") else None,
-                    "url": g.get("url"),
-                    "worth": g.get("worth"),
-                }
-                for g in games
-            ]
+        header = {
+            "title_default": "$title",
+            "line1_default": "$rating",
+            "line2_default": "$price",
+            "line3_default": "$release",
+            "line4_default": "$genres",
+            "icon": "mdi:gamepad-variant",
         }
+        entries = []
+        for g in games:
+            end_dt = g.get("end_date")
+            worth = g.get("worth")
+            entries.append({
+                "title": g.get("title", ""),
+                "rating": g.get("platform", ""),
+                "price": "FREE" + (f" (${worth:.2f} value)" if worth else ""),
+                "release": f"Expires {end_dt.strftime('%-d %b %Y')}" if end_dt else "",
+                "genres": g.get("type", ""),
+                "airdate": end_dt.strftime("%Y-%m-%d") if end_dt else "unknown",
+                "box_art_url": g.get("cover", ""),
+                "fanart": g.get("cover", ""),
+                "poster": g.get("poster", g.get("cover", "")),
+                "deep_link": g.get("url", ""),
+            })
+        return {"data": [header] + entries}
 
 
 class FreeGamesValueSensor(CoordinatorEntity, SensorEntity):

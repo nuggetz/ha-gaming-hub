@@ -63,6 +63,7 @@ class GamerPowerClient:
             raw_type = (item.get("type") or "other").lower()
             normalized_type = _TYPE_MAP.get(raw_type, "other")
 
+            image = item.get("image", "")
             results.append({
                 "title": item.get("title", "Unknown"),
                 "platform": platforms_str,
@@ -71,6 +72,8 @@ class GamerPowerClient:
                 "end_date": _parse_dt(item.get("end_date")),
                 "url": item.get("open_giveaway_url") or item.get("giveaway_url", ""),
                 "worth": _parse_worth(item.get("worth")),
+                "cover": image,
+                "poster": image,
                 "status": "current",
             })
 

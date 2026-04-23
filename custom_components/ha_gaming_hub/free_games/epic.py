@@ -18,6 +18,18 @@ def _parse_dt(value: str | None) -> datetime | None:
         return None
 
 
+_WIDE_IMAGE_TYPES = ("OfferImageWide", "DieselStoreFrontWide", "DieselGameBoxWide", "Thumbnail")
+_TALL_IMAGE_TYPES = ("DieselGameBoxTall", "DieselGameBox", "OfferImageTall")
+
+
+def _extract_images(element: dict) -> tuple[str, str]:
+    """Return (cover_wide, poster_tall) URLs, falling back to each other."""
+    images = {img["type"]: img["url"] for img in element.get("keyImages", []) if "url" in img}
+    cover = next((images[t] for t in _WIDE_IMAGE_TYPES if t in images), "")
+    poster = next((images[t] for t in _TALL_IMAGE_TYPES if t in images), cover)
+    return cover, poster
+
+
 def _build_url(element: dict) -> str:
     slug = element.get("productSlug") or ""
     if not slug:
@@ -68,6 +80,7 @@ class EpicClient:
 
             url = _build_url(el)
             title = el.get("title", "Unknown")
+            cover, poster = _extract_images(el)
 
             for group in active_offers:
                 for offer in group.get("promotionalOffers", []):
@@ -86,6 +99,8 @@ class EpicClient:
                         "end_date": _parse_dt(offer.get("endDate")),
                         "url": url,
                         "worth": None,
+                        "cover": cover,
+                        "poster": poster,
                         "status": "current",
                     })
 
@@ -99,6 +114,8 @@ class EpicClient:
                         "end_date": _parse_dt(offer.get("endDate")),
                         "url": url,
                         "worth": None,
+                        "cover": cover,
+                        "poster": poster,
                         "status": "upcoming",
                     })
 
