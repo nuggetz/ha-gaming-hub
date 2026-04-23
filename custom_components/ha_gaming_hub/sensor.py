@@ -1,6 +1,6 @@
 import logging
 
-from homeassistant.components.sensor import SensorEntity, SensorStateClass
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -63,8 +63,12 @@ class FreeGamesValueSensor(CoordinatorEntity, SensorEntity):
     _attr_name = "Free Games Total Value"
     _attr_unique_id = "gaming_hub_free_games_value"
     _attr_icon = "mdi:cash"
-    _attr_native_unit_of_measurement = "USD"
+    _attr_device_class = SensorDeviceClass.MONETARY
     _attr_state_class = SensorStateClass.MEASUREMENT
+
+    @property
+    def native_unit_of_measurement(self) -> str:
+        return self.hass.config.currency
 
     @property
     def native_value(self) -> float:
