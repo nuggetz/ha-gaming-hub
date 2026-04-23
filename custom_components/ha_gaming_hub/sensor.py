@@ -84,12 +84,13 @@ class FreeGamesCountSensor(CoordinatorEntity, SensorEntity):
                 "poster": g.get("poster", cover),
                 "deep_link": g.get("url", ""),
             })
+            store = g.get("store", g.get("platform", ""))
             nintendo_entries.append({
                 "title": g.get("title", ""),
                 "box_art_url": cover,
                 "backgroundart": cover,
-                "sale_price": "Free",
-                "normal_price": f"${worth:.2f}" if worth else g.get("store", g.get("platform", "Free")),
+                "sale_price": f"Free · {store}" if worth and store else (store or "Free"),
+                "normal_price": f"${worth:.2f}" if worth else "",
                 "percent_off": 100,
             })
         return {
