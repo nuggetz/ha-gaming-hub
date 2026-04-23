@@ -25,17 +25,20 @@ from .const import (
     CONF_ITAD_API_KEY,
     CONF_STEAM_API_KEY,
     CONF_STEAM_IDS,
+    DEFAULT_SCAN_INTERVAL_FREE_GAMES,
     DEFAULT_SCAN_INTERVAL_PRICE_TRACKER,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 STEP_MODULE_SELECTION = "user"
+STEP_FREE_GAMES = "free_games"
 STEP_PRICE_TRACKER = "price_tracker"
 STEP_STEAM = "steam"
 STEP_XBOX = "xbox"
 STEP_SUMMARY = "summary"
 
+SCAN_INTERVAL_FREE_GAMES_KEY = "scan_interval_free_games"
 SCAN_INTERVAL_PRICE_TRACKER_KEY = "scan_interval_price_tracker"
 
 
@@ -58,6 +61,8 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors[CONF_MODULES] = "no_modules_selected"
             else:
                 self._data[CONF_MODULES] = selected
+                if MODULE_FREE_GAMES in selected:
+                    return await self.async_step_free_games()
                 if MODULE_PRICE_TRACKER in selected:
                     return await self.async_step_price_tracker()
                 if MODULE_PRESENCE in selected:
@@ -84,6 +89,41 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=schema,
             errors=errors,
+        )
+
+    async def async_step_free_games(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        if user_input is not None:
+            self._data[SCAN_INTERVAL_FREE_GAMES_KEY] = user_input.get(
+                SCAN_INTERVAL_FREE_GAMES_KEY, DEFAULT_SCAN_INTERVAL_FREE_GAMES
+            )
+            if MODULE_PRICE_TRACKER in self._data[CONF_MODULES]:
+                return await self.async_step_price_tracker()
+            if MODULE_PRESENCE in self._data[CONF_MODULES]:
+                return await self.async_step_steam()
+            return await self.async_step_summary()
+
+        schema = vol.Schema(
+            {
+                vol.Optional(
+                    SCAN_INTERVAL_FREE_GAMES_KEY,
+                    default=DEFAULT_SCAN_INTERVAL_FREE_GAMES,
+                ): NumberSelector(
+                    NumberSelectorConfig(
+                        min=1800,
+                        max=86400,
+                        step=1800,
+                        unit_of_measurement="seconds",
+                        mode=NumberSelectorMode.BOX,
+                    )
+                ),
+            }
+        )
+
+        return self.async_show_form(
+            step_id=STEP_FREE_GAMES,
+            data_schema=schema,
         )
 
     async def async_step_price_tracker(

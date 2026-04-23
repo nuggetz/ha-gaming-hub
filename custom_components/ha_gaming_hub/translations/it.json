@@ -8,6 +8,13 @@
           "modules": "Moduli"
         }
       },
+      "free_games": {
+        "title": "Free Games — Configurazione",
+        "description": "Configura il modulo Free Games. Fonti: Epic Games Store e GamerPower. Nessuna chiave API richiesta.",
+        "data": {
+          "scan_interval_free_games": "Intervallo di aggiornamento (secondi)"
+        }
+      },
       "price_tracker": {
         "title": "Price Tracker — Configurazione",
         "description": "Configura il modulo Price Tracker. La chiave ITAD è opzionale; lascia vuoto per usare solo CheapShark.",

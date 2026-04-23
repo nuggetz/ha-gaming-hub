@@ -30,7 +30,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     if MODULE_FREE_GAMES in enabled_modules:
         from .free_games.coordinator import FreeGamesCoordinator
-        coordinator = FreeGamesCoordinator(hass, session)
+        scan_interval = entry.data.get("scan_interval_free_games", DEFAULT_SCAN_INTERVAL_FREE_GAMES)
+        coordinator = FreeGamesCoordinator(hass, session, int(scan_interval))
         await coordinator.async_config_entry_first_refresh()
         coordinators[MODULE_FREE_GAMES] = coordinator
 
