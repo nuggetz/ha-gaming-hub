@@ -3,6 +3,7 @@ import logging
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -24,18 +25,31 @@ async def async_setup_entry(
     if MODULE_FREE_GAMES in coordinators:
         coordinator = coordinators[MODULE_FREE_GAMES]
         entities.extend([
-            FreeGamesCountSensor(coordinator),
-            FreeGamesValueSensor(coordinator),
+            FreeGamesCountSensor(coordinator, entry.entry_id),
+            FreeGamesValueSensor(coordinator, entry.entry_id),
         ])
 
     async_add_entities(entities)
 
 
+def _device_info(entry_id: str) -> DeviceInfo:
+    return DeviceInfo(
+        identifiers={(DOMAIN, entry_id)},
+        name="Gaming Hub",
+        manufacturer="HA Gaming Hub",
+    )
+
+
 class FreeGamesCountSensor(CoordinatorEntity, SensorEntity):
-    _attr_name = "Free Games Available"
+    _attr_has_entity_name = True
+    _attr_name = "Free Games Count"
     _attr_unique_id = "gaming_hub_free_games_count"
     _attr_icon = "mdi:gamepad-variant"
     _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator, entry_id: str) -> None:
+        super().__init__(coordinator)
+        self._attr_device_info = _device_info(entry_id)
 
     @property
     def native_value(self) -> int:
@@ -72,11 +86,16 @@ class FreeGamesCountSensor(CoordinatorEntity, SensorEntity):
 
 
 class FreeGamesValueSensor(CoordinatorEntity, SensorEntity):
-    _attr_name = "Free Games Total Value"
+    _attr_has_entity_name = True
+    _attr_name = "Free Games Value"
     _attr_unique_id = "gaming_hub_free_games_value"
     _attr_icon = "mdi:cash"
     _attr_device_class = SensorDeviceClass.MONETARY
     _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator, entry_id: str) -> None:
+        super().__init__(coordinator)
+        self._attr_device_info = _device_info(entry_id)
 
     @property
     def native_unit_of_measurement(self) -> str:

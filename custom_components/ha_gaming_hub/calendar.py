@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from homeassistant.components.calendar import CalendarEntity, CalendarEvent
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -25,9 +26,17 @@ async def async_setup_entry(
     entities = []
 
     if MODULE_FREE_GAMES in coordinators:
-        entities.append(FreeGamesCalendar(coordinators[MODULE_FREE_GAMES]))
+        entities.append(FreeGamesCalendar(coordinators[MODULE_FREE_GAMES], entry.entry_id))
 
     async_add_entities(entities)
+
+
+def _device_info(entry_id: str) -> DeviceInfo:
+    return DeviceInfo(
+        identifiers={(DOMAIN, entry_id)},
+        name="Gaming Hub",
+        manufacturer="HA Gaming Hub",
+    )
 
 
 def _game_to_event(game: dict) -> CalendarEvent | None:
@@ -50,8 +59,13 @@ def _game_to_event(game: dict) -> CalendarEvent | None:
 
 
 class FreeGamesCalendar(CoordinatorEntity, CalendarEntity):
+    _attr_has_entity_name = True
     _attr_name = "Free Games"
     _attr_unique_id = "gaming_hub_free_games_calendar"
+
+    def __init__(self, coordinator, entry_id: str) -> None:
+        super().__init__(coordinator)
+        self._attr_device_info = _device_info(entry_id)
 
     @property
     def event(self) -> CalendarEvent | None:
