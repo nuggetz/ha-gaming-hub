@@ -17,18 +17,20 @@
       },
       "price_tracker": {
         "title": "Price Tracker — Configurazione",
-        "description": "Configura il modulo Price Tracker. La chiave ITAD è opzionale; lascia vuoto per usare solo CheapShark.",
+        "description": "Configura il modulo Price Tracker. La chiave ITAD è opzionale; lascia vuoto per usare solo CheapShark.\n\nOpzionale: inserisci la tua chiave API Steam e il tuo SteamID64 per abilitare il confronto con la wishlist (mostra un badge quando un gioco tracciato è nella tua wishlist Steam). Entrambi i campi devono essere compilati insieme o lasciati vuoti.",
         "data": {
           "itad_api_key": "Chiave API IsThereAnyDeal (opzionale)",
-          "scan_interval_price_tracker": "Intervallo di aggiornamento (secondi)"
+          "scan_interval_price_tracker": "Intervallo di aggiornamento (secondi)",
+          "steam_api_key": "Chiave API Steam (opzionale, per wishlist)",
+          "steam_wishlist_id": "Il tuo SteamID64 (opzionale, per wishlist)"
         }
       },
       "steam": {
         "title": "Presence — Configurazione Steam",
-        "description": "Inserisci la tua chiave API Steam e gli Steam ID o vanity URL da monitorare. I vanity URL verranno risolti automaticamente.",
+        "description": "Inserisci la tua chiave API Steam e gli Steam ID o vanity URL da monitorare. Lascia entrambi i campi vuoti per saltare Steam e passare a Xbox. I vanity URL verranno risolti automaticamente.",
         "data": {
-          "steam_api_key": "Chiave API Steam",
-          "steam_ids": "Steam ID / Vanity URL"
+          "steam_api_key": "Chiave API Steam (opzionale)",
+          "steam_ids": "Steam ID / Vanity URL (lascia vuoto per saltare)"
         }
       },
       "xbox_entity": {
@@ -40,14 +42,15 @@
       },
       "summary": {
         "title": "Riepilogo configurazione",
-        "description": "Moduli: {modules}\nChiave IsThereAnyDeal: {itad_key}\nChiave Steam: {steam_key}\nAccount Xbox: {xbox_accounts}\n\nClicca Invia per salvare.",
+        "description": "Moduli: {modules}\nChiave IsThereAnyDeal: {itad_key}\nChiave Steam: {steam_key}\nSteamID64 Wishlist: {steam_wishlist_id}\nAccount Xbox: {xbox_accounts}\n\nClicca Invia per salvare.",
         "data": {}
       }
     },
     "error": {
       "no_modules_selected": "Seleziona almeno un modulo.",
-      "steam_key_required": "La chiave API Steam è obbligatoria quando il modulo Presence è abilitato.",
-      "steam_id_resolve_failed": "Uno o più Steam ID o vanity URL non sono stati risolti. Controlla i valori e riprova."
+      "steam_key_required": "La chiave API Steam è obbligatoria quando vengono inseriti Steam ID.",
+      "steam_id_resolve_failed": "Uno o più Steam ID o vanity URL non sono stati risolti. Controlla i valori e riprova.",
+      "steam_wishlist_both_required": "Chiave API Steam e SteamID64 devono essere entrambi compilati o entrambi lasciati vuoti."
     },
     "abort": {
       "already_configured": "HA Gaming Hub è già configurato."

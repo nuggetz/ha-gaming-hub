@@ -11,6 +11,7 @@ from .const import (
     CONF_ITAD_API_KEY,
     CONF_STEAM_API_KEY,
     CONF_STEAM_IDS,
+    CONF_STEAM_WISHLIST_ID,
     CONF_XBOX_ACCOUNTS,
     MODULE_FREE_GAMES,
     MODULE_PRICE_TRACKER,
@@ -43,7 +44,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         from .price_tracker.coordinator import PriceTrackerCoordinator
         scan_interval = int(entry.data.get("scan_interval_price_tracker", DEFAULT_SCAN_INTERVAL_PRICE_TRACKER))
         api_key_itad = entry.data.get(CONF_ITAD_API_KEY) or None
-        coordinator = PriceTrackerCoordinator(hass, session, scan_interval, api_key_itad)
+        steam_api_key = entry.data.get(CONF_STEAM_API_KEY) or None
+        steam_wishlist_id = entry.data.get(CONF_STEAM_WISHLIST_ID) or None
+        coordinator = PriceTrackerCoordinator(hass, session, scan_interval, api_key_itad, steam_api_key, steam_wishlist_id)
         await coordinator.async_config_entry_first_refresh()
         coordinators[MODULE_PRICE_TRACKER] = coordinator
 

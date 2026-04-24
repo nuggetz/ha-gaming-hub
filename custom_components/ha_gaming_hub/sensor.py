@@ -199,6 +199,7 @@ class GameBestPriceSensor(_GameBaseSensor):
         return {
             "cheapest_ever_price": d.get("cheapest_ever_price"),
             "cheapest_ever_date": d.get("cheapest_ever_date"),
+            "in_steam_wishlist": d.get("in_steam_wishlist", False),
         }
 
 

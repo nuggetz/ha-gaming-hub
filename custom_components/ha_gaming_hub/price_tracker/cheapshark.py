@@ -87,12 +87,18 @@ class CheapSharkClient:
                 pass
             cheapest_ever_date = cheapest_ever.get("date")
 
+        steam_app_id: str | None = None
+        info = data.get("info", {})
+        if info.get("steamAppID"):
+            steam_app_id = str(info["steamAppID"])
+
         return {
             "best_price": best_price,
             "best_store": best_store,
             "discount_pct": discount_pct,
             "cheapest_ever_price": cheapest_ever_price,
             "cheapest_ever_date": cheapest_ever_date,
+            "steam_app_id": steam_app_id,
             "all_deals": [
                 {
                     "store": stores.get(str(d.get("storeID", "")), f"Store {d.get('storeID')}"),

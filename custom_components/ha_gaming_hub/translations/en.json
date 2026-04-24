@@ -17,18 +17,20 @@
       },
       "price_tracker": {
         "title": "Price Tracker — Configuration",
-        "description": "Configure the Price Tracker module. The ITAD API key is optional; leave blank to use CheapShark only.",
+        "description": "Configure the Price Tracker module. The ITAD API key is optional; leave blank to use CheapShark only.\n\nOptional: enter your Steam API Key and your SteamID64 to enable wishlist matching (shows a badge when a tracked game is in your Steam wishlist). Both fields must be filled together or left blank.",
         "data": {
           "itad_api_key": "IsThereAnyDeal API Key (optional)",
-          "scan_interval_price_tracker": "Polling interval (seconds)"
+          "scan_interval_price_tracker": "Polling interval (seconds)",
+          "steam_api_key": "Steam API Key (optional, for wishlist matching)",
+          "steam_wishlist_id": "Your SteamID64 (optional, for wishlist matching)"
         }
       },
       "steam": {
         "title": "Presence — Steam Configuration",
-        "description": "Enter your Steam API key and the Steam IDs or vanity URLs to track. Vanity URLs will be resolved automatically.",
+        "description": "Enter your Steam API key and the Steam IDs or vanity URLs to track. Leave both fields blank to skip Steam presence and go to Xbox. Vanity URLs will be resolved automatically.",
         "data": {
-          "steam_api_key": "Steam API Key",
-          "steam_ids": "Steam IDs / Vanity URLs"
+          "steam_api_key": "Steam API Key (optional)",
+          "steam_ids": "Steam IDs / Vanity URLs (leave blank to skip)"
         }
       },
       "xbox_entity": {
@@ -40,14 +42,15 @@
       },
       "summary": {
         "title": "Configuration Summary",
-        "description": "Modules: {modules}\nISThereAnyDeal key: {itad_key}\nSteam key: {steam_key}\nXbox accounts: {xbox_accounts}\n\nClick Submit to save.",
+        "description": "Modules: {modules}\nIsThereAnyDeal key: {itad_key}\nSteam key: {steam_key}\nSteam Wishlist ID: {steam_wishlist_id}\nXbox accounts: {xbox_accounts}\n\nClick Submit to save.",
         "data": {}
       }
     },
     "error": {
       "no_modules_selected": "Please select at least one module.",
-      "steam_key_required": "A Steam API key is required when the Presence module is enabled.",
-      "steam_id_resolve_failed": "One or more Steam IDs or vanity URLs could not be resolved. Check the values and try again."
+      "steam_key_required": "A Steam API key is required when Steam IDs are provided.",
+      "steam_id_resolve_failed": "One or more Steam IDs or vanity URLs could not be resolved. Check the values and try again.",
+      "steam_wishlist_both_required": "Steam API Key and SteamID64 must both be filled or both left blank."
     },
     "abort": {
       "already_configured": "HA Gaming Hub is already configured."

@@ -6,7 +6,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
 from ..coordinator import GamingHubCoordinator
-from ..const import DEFAULT_SCAN_INTERVAL_PRICE_TRACKER
+from ..const import DEFAULT_SCAN_INTERVAL_PRICE_TRACKER, STEAM_API_URL
 from . import STORAGE_KEY, STORAGE_VERSION, load_watchlist, add_game_to_watchlist, remove_game_from_watchlist, _slugify
 from .cheapshark import CheapSharkClient
 from .itad import ITADClient
@@ -22,6 +22,8 @@ class PriceTrackerCoordinator(GamingHubCoordinator):
         session,
         scan_interval: int,
         api_key_itad: str | None = None,
+        steam_api_key: str | None = None,
+        steam_wishlist_id: str | None = None,
     ) -> None:
         super().__init__(
             hass,
@@ -33,6 +35,8 @@ class PriceTrackerCoordinator(GamingHubCoordinator):
         self.itad = ITADClient(session, api_key_itad)
         self.store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
         self.watchlist: list[dict] = []
+        self._steam_api_key = steam_api_key
+        self._steam_wishlist_id = steam_wishlist_id
         self._sensor_add_cb: Callable | None = None
         self._sensor_remove_cb: Callable | None = None
         self._binary_sensor_add_cb: Callable | None = None
@@ -71,12 +75,30 @@ class PriceTrackerCoordinator(GamingHubCoordinator):
             self._binary_sensor_remove_cb(slug)
         await self.async_refresh()
 
+    async def _async_fetch_steam_wishlist(self) -> set[str]:
+        if not self._steam_api_key or not self._steam_wishlist_id:
+            return set()
+        url = f"{STEAM_API_URL}/IWishlistService/GetWishlist/v1/"
+        params = {"key": self._steam_api_key, "steamid": self._steam_wishlist_id}
+        try:
+            async with self.session.get(url, params=params) as resp:
+                resp.raise_for_status()
+                data = await resp.json(content_type=None)
+            items = data.get("response", {}).get("items", [])
+            return {str(item["appid"]) for item in items if "appid" in item}
+        except Exception as err:
+            _LOGGER.warning("Steam wishlist fetch failed: %s", err)
+            return set()
+
     async def _async_update_data(self) -> dict[str, dict]:
         if not self.watchlist:
             return {}
 
         cs_tasks = [self._fetch_cheapshark(game) for game in self.watchlist]
-        cs_results = await asyncio.gather(*cs_tasks, return_exceptions=True)
+        cs_results, wishlist_ids = await asyncio.gather(
+            asyncio.gather(*cs_tasks, return_exceptions=True),
+            self._async_fetch_steam_wishlist(),
+        )
 
         itad_ids = [g["itad_id"] for g in self.watchlist if g.get("itad_id")]
         itad_data: dict[str, dict] = {}
@@ -96,6 +118,7 @@ class PriceTrackerCoordinator(GamingHubCoordinator):
                 "discount_pct": 0.0,
                 "on_sale": False,
                 "historical_low": False,
+                "in_steam_wishlist": False,
             }
 
             if isinstance(cs_result, dict) and cs_result:
@@ -108,6 +131,10 @@ class PriceTrackerCoordinator(GamingHubCoordinator):
                 cheapest_ever = cs_result.get("cheapest_ever_price")
                 if best_price is not None and cheapest_ever is not None and cheapest_ever > 0:
                     entry["historical_low"] = best_price <= cheapest_ever
+
+                steam_app_id = cs_result.get("steam_app_id")
+                if steam_app_id and wishlist_ids:
+                    entry["in_steam_wishlist"] = steam_app_id in wishlist_ids
             elif isinstance(cs_result, Exception):
                 _LOGGER.warning("CheapShark fetch error for '%s': %s", game["title"], cs_result)
 

@@ -15,6 +15,7 @@ CONF_MODULES = "modules"
 CONF_ITAD_API_KEY = "itad_api_key"
 CONF_STEAM_API_KEY = "steam_api_key"
 CONF_STEAM_IDS = "steam_ids"
+CONF_STEAM_WISHLIST_ID = "steam_wishlist_id"
 CONF_XBOX_ACCOUNTS = "xbox_accounts"
 
 # Default polling intervals (seconds)

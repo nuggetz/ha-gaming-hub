@@ -27,6 +27,7 @@ from .const import (
     CONF_ITAD_API_KEY,
     CONF_STEAM_API_KEY,
     CONF_STEAM_IDS,
+    CONF_STEAM_WISHLIST_ID,
     CONF_XBOX_ACCOUNTS,
     DEFAULT_SCAN_INTERVAL_FREE_GAMES,
     DEFAULT_SCAN_INTERVAL_PRICE_TRACKER,
@@ -134,14 +135,24 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_price_tracker(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.FlowResult:
+        errors: dict[str, str] = {}
+
         if user_input is not None:
             self._data[CONF_ITAD_API_KEY] = user_input.get(CONF_ITAD_API_KEY, "")
             self._data[SCAN_INTERVAL_PRICE_TRACKER_KEY] = user_input.get(
                 SCAN_INTERVAL_PRICE_TRACKER_KEY, DEFAULT_SCAN_INTERVAL_PRICE_TRACKER
             )
-            if MODULE_PRESENCE in self._data[CONF_MODULES]:
-                return await self.async_step_steam()
-            return await self.async_step_summary()
+            api_key = user_input.get(CONF_STEAM_API_KEY, "").strip()
+            wishlist_id = user_input.get(CONF_STEAM_WISHLIST_ID, "").strip()
+            if bool(api_key) != bool(wishlist_id):
+                field = CONF_STEAM_WISHLIST_ID if api_key else CONF_STEAM_API_KEY
+                errors[field] = "steam_wishlist_both_required"
+            else:
+                self._data[CONF_STEAM_API_KEY] = api_key
+                self._data[CONF_STEAM_WISHLIST_ID] = wishlist_id
+                if MODULE_PRESENCE in self._data[CONF_MODULES]:
+                    return await self.async_step_steam()
+                return await self.async_step_summary()
 
         schema = vol.Schema(
             {
@@ -160,12 +171,19 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         mode=NumberSelectorMode.BOX,
                     )
                 ),
+                vol.Optional(CONF_STEAM_API_KEY, default=""): TextSelector(
+                    TextSelectorConfig(type=TextSelectorType.PASSWORD)
+                ),
+                vol.Optional(CONF_STEAM_WISHLIST_ID, default=""): TextSelector(
+                    TextSelectorConfig(type=TextSelectorType.TEXT)
+                ),
             }
         )
 
         return self.async_show_form(
             step_id=STEP_PRICE_TRACKER,
             data_schema=schema,
+            errors=errors,
         )
 
     async def async_step_steam(
@@ -177,8 +195,14 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             api_key = user_input.get(CONF_STEAM_API_KEY, "").strip()
             raw_ids: list[str] = [s.strip() for s in user_input.get(CONF_STEAM_IDS, []) if s.strip()]
 
-            if not api_key:
+            if raw_ids and not api_key:
                 errors[CONF_STEAM_API_KEY] = "steam_key_required"
+            elif not raw_ids:
+                # No IDs to track → skip Steam presence; keep api_key if provided
+                if api_key:
+                    self._data[CONF_STEAM_API_KEY] = api_key
+                self._data[CONF_STEAM_IDS] = []
+                return await self.async_step_xbox_entity()
             else:
                 resolved_ids = await self._resolve_steam_ids(api_key, raw_ids)
                 if resolved_ids is None:
@@ -188,9 +212,10 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     self._data[CONF_STEAM_IDS] = resolved_ids
                     return await self.async_step_xbox_entity()
 
+        prefilled_key = self._data.get(CONF_STEAM_API_KEY, "")
         schema = vol.Schema(
             {
-                vol.Required(CONF_STEAM_API_KEY): TextSelector(
+                vol.Optional(CONF_STEAM_API_KEY, default=prefilled_key): TextSelector(
                     TextSelectorConfig(type=TextSelectorType.PASSWORD)
                 ),
                 vol.Optional(CONF_STEAM_IDS, default=[]): TextSelector(
@@ -264,12 +289,14 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         modules = self._data.get(CONF_MODULES, [])
         itad_key = self._data.get(CONF_ITAD_API_KEY, "")
         steam_key = self._data.get(CONF_STEAM_API_KEY, "")
+        steam_wishlist_id = self._data.get(CONF_STEAM_WISHLIST_ID, "")
         xbox_accounts = self._data.get(CONF_XBOX_ACCOUNTS, [])
 
         placeholders = {
             "modules": ", ".join(modules),
             "itad_key": ("***" + itad_key[-4:]) if len(itad_key) > 4 else ("*" * len(itad_key)) if itad_key else "not set",
             "steam_key": ("***" + steam_key[-4:]) if len(steam_key) > 4 else ("*" * len(steam_key)) if steam_key else "not set",
+            "steam_wishlist_id": steam_wishlist_id if steam_wishlist_id else "not set",
             "xbox_accounts": ", ".join(a["gamertag"] for a in xbox_accounts) if xbox_accounts else "none",
         }
 
