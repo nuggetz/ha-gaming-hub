@@ -27,6 +27,7 @@ from .const import (
     CONF_ITAD_API_KEY,
     CONF_STEAM_API_KEY,
     CONF_STEAM_IDS,
+    CONF_XBOX_ACCOUNTS,
     DEFAULT_SCAN_INTERVAL_FREE_GAMES,
     DEFAULT_SCAN_INTERVAL_PRICE_TRACKER,
 )
@@ -253,7 +254,7 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             try:
                 self._xbox_device_code = await dcf.start_flow()
             except Exception as err:
-                _LOGGER.warning("Xbox device code start failed: %s", err)
+                _LOGGER.warning("Xbox device code start failed: %s", err, exc_info=True)
                 errors["base"] = "xbox_start_failed"
 
         placeholders: dict[str, str] = {
