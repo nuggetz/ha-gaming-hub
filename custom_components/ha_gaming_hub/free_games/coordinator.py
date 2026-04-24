@@ -15,10 +15,16 @@ from .gamerpower import GamerPowerClient
 _LOGGER = logging.getLogger(__name__)
 
 _STEAM_APP_URL_RE = re.compile(r"store\.steampowered\.com/app/(\d+)", re.IGNORECASE)
+_NOISE_RE = re.compile(r"\b(giveaway|give away|free game|free dlc)\b", re.IGNORECASE)
 
 
 def _normalize_title(title: str) -> str:
     return re.sub(r"[^a-z0-9 ]", "", title.lower()).strip()
+
+
+def _clean_title(title: str) -> str:
+    """Strip noise words added by giveaway platforms before wishlist matching."""
+    return _normalize_title(_NOISE_RE.sub("", title))
 
 
 def _merge_games(epic_games: list[dict], gamerpower_games: list[dict]) -> list[dict]:
@@ -107,7 +113,7 @@ class FreeGamesCoordinator(GamingHubCoordinator):
             m = _STEAM_APP_URL_RE.search(game.get("url") or "")
             if m and m.group(1) in wishlist_appids:
                 return True
-            return _normalize_title(game.get("title", "")) in wishlist_titles
+            return _clean_title(game.get("title", "")) in wishlist_titles
 
         current = []
         upcoming = []
