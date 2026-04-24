@@ -159,12 +159,48 @@ Monitors the price of games you add to a watchlist. For each tracked game the in
 
 You can leave this field blank during setup: the integration will use CheapShark-only data, which is already enough for price + discount tracking.
 
+### Steam wishlist matching (optional)
+
+If you provide a Steam API key and your SteamID64 during setup, the integration cross-references your Steam wishlist on every price poll and adds an `in_steam_wishlist` attribute to each tracked game's `best_price` sensor. This lets you spot deals on games you already want without leaving Home Assistant.
+
+#### Finding your SteamID64
+
+Open your Steam profile in a browser and look at the URL:
+
+- **Custom URL** → `https://steamcommunity.com/id/yourname` — your SteamID64 is **not** visible here; use [steamid.io](https://steamid.io) to convert your vanity name to the numeric 17-digit ID
+- **Numeric URL** → `https://steamcommunity.com/profiles/76561198XXXXXXXXX` — the 17-digit number in the URL is your SteamID64
+
+#### Using the wishlist attribute in automations
+
+```yaml
+alias: Notify when a wishlisted game goes on sale
+trigger:
+  - platform: template
+    value_template: >
+      {{ state_attr('sensor.gaming_hub_cyberpunk_2077_best_price', 'in_steam_wishlist') == true
+         and states('binary_sensor.gaming_hub_cyberpunk_2077_on_sale') == 'on' }}
+action:
+  - service: notify.mobile_app_your_phone
+    data:
+      title: "Wishlist deal!"
+      message: >
+        Cyberpunk 2077 (in your Steam wishlist) is on sale for
+        ${{ states('sensor.gaming_hub_cyberpunk_2077_best_price') }}
+        on {{ states('sensor.gaming_hub_cyberpunk_2077_best_store') }}
+```
+
 ### Configuration
 
 During the initial setup wizard, after selecting **Price Tracker**:
 
 - **IsThereAnyDeal API Key** — paste your key, or leave blank
 - **Polling interval** — how often to refresh prices (default: 3 600 s / 1 hour; min 1 h, max 24 h)
+- **Steam API Key** *(optional)* — required only for wishlist matching; leave blank to skip
+- **Your SteamID64** *(optional)* — your 17-digit Steam account ID; required together with the API key above
+
+Both Steam fields must be filled together or left blank — filling only one will show a validation error.
+
+> **Tip:** if you also enable the Presence module, the Steam API key you enter here will be pre-filled in the Presence setup step.
 
 After setup, manage your watchlist from **Settings → Integrations → HA Gaming Hub → Configure**:
 
@@ -182,6 +218,14 @@ Each game on your watchlist creates 4 entities. Entity IDs use a slugified versi
 | `sensor.gaming_hub_<slug>_discount` | Sensor | Current discount percentage (0–100) |
 | `binary_sensor.gaming_hub_<slug>_on_sale` | Binary Sensor | `on` when any store has a discount > 0% |
 | `binary_sensor.gaming_hub_<slug>_historical_low` | Binary Sensor | `on` when the current best price equals the all-time low |
+
+The `sensor.gaming_hub_<slug>_best_price` entity also exposes:
+
+| Attribute | Description |
+| --------- | ----------- |
+| `cheapest_ever_price` | All-time lowest price recorded by CheapShark (USD) |
+| `cheapest_ever_date` | Date of the all-time low |
+| `in_steam_wishlist` | `true` if the game is in your Steam wishlist (requires wishlist setup above) |
 
 ### Example automation
 
@@ -207,13 +251,17 @@ action:
 
 Shows the online and gaming status of Steam and Xbox accounts in real time.
 
-### Steam setup
+### Steam setup (optional)
+
+Steam tracking is optional. If you only want Xbox presence or have already configured wishlist matching in the Price Tracker module and don't need to track friends, you can leave both Steam fields blank — the wizard will skip straight to the Xbox step.
 
 #### 1 — Get a Steam API key
 
 1. Go to [https://steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey) (you must be logged in)
 2. Enter any domain in the **Domain Name** field (e.g. `homeassistant.local`) and click **Register**
 3. Copy the key shown on the next page
+
+> **Tip:** if you already entered a Steam API key in the Price Tracker setup, it will be pre-filled here automatically.
 
 #### 2 — Find your Steam ID or Vanity URL
 
@@ -223,6 +271,8 @@ Open your Steam profile in a browser and look at the URL:
 - **Numeric ID** → `https://steamcommunity.com/profiles/`**`76561198XXXXXXXXX`** — enter the 17-digit number directly
 
 You can track multiple accounts: enter one ID or Vanity URL per line in the **Steam IDs / Vanity URLs** field. Vanity URLs are resolved to SteamID64 automatically during setup.
+
+Leave the **Steam IDs / Vanity URLs** field empty (with or without an API key) to skip Steam presence tracking entirely and proceed to the Xbox step.
 
 ### Xbox setup
 
