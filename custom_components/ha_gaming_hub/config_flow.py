@@ -308,20 +308,19 @@ class GamingHubOptionsFlowHandler(config_entries.OptionsFlow):
             choice = user_input.get("game_choice")
             if choice and self._coordinator:
                 for result in self._search_results:
-                    if result["id"] == choice:
+                    if result["gameID"] == choice:
                         await self._coordinator.async_add_game({
                             "title": result["title"],
-                            "itad_id": result["id"],
-                            "slug": result.get("slug") or None,
+                            "cheapshark_id": result["gameID"],
+                            "itad_id": None,
                         })
                         break
             return self.async_create_entry(title="", data={})
 
-        from .price_tracker.itad import ITADClient
-        api_key = self.config_entry.data.get(CONF_ITAD_API_KEY) or None
+        from .price_tracker.cheapshark import CheapSharkClient
         session = async_get_clientsession(self.hass)
-        itad = ITADClient(session, api_key)
-        self._search_results = await itad.search_game(self._search_title)
+        cs = CheapSharkClient(session)
+        self._search_results = await cs.search_game(self._search_title)
 
         if not self._search_results:
             return self.async_show_form(
@@ -332,7 +331,7 @@ class GamingHubOptionsFlowHandler(config_entries.OptionsFlow):
             )
 
         options = [
-            {"value": r["id"], "label": r["title"]} for r in self._search_results
+            {"value": r["gameID"], "label": r["title"]} for r in self._search_results
         ]
         return self.async_show_form(
             step_id="watchlist_search",
