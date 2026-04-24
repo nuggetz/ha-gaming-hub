@@ -135,9 +135,161 @@ The sensor exposes two attributes so it works with multiple cards out of the box
 | `title` | Game title |
 | `box_art_url` | Cover art URL |
 | `backgroundart` | Wide art URL (same as cover) |
-| `sale_price` | Always `"Free"` |
-| `normal_price` | `"$X.XX"` if known from GamerPower, otherwise `"Free"` |
+| `sale_price` | `"Free · Steam"` / `"Free · Epic Games"` etc. — store name always shown here |
+| `normal_price` | `"$X.XX"` if the original value is known from GamerPower, otherwise empty |
 | `percent_off` | Always `100` |
+
+---
+
+## Price Tracker Module
+
+Monitors the price of games you add to a watchlist. For each tracked game the integration creates a set of entities that update automatically and can trigger automations when a deal is found.
+
+### Price data sources
+
+- **CheapShark** — aggregates deals from 30+ stores (Steam, GOG, Humble, Fanatical, GreenManGaming, and more). No API key required.
+- **IsThereAnyDeal (ITAD)** — optional enrichment: historical lows, more stores, and richer metadata. Requires a free API key.
+
+### Getting an ITAD API key (optional)
+
+1. Create a free account at [IsThereAnyDeal.com](https://isthereanydeal.com)
+2. Go to your [Developer page](https://isthereanydeal.com/dev/app/) (top-right menu → Developer)
+3. Create a new application — give it any name (e.g. `Home Assistant`)
+4. Copy the **API key** shown in the application details
+
+You can leave this field blank during setup: the integration will use CheapShark-only data, which is already enough for price + discount tracking.
+
+### Configuration
+
+During the initial setup wizard, after selecting **Price Tracker**:
+
+- **IsThereAnyDeal API Key** — paste your key, or leave blank
+- **Polling interval** — how often to refresh prices (default: 3 600 s / 1 hour; min 1 h, max 24 h)
+
+After setup, manage your watchlist from **Settings → Integrations → HA Gaming Hub → Configure**:
+
+- Type a game title in **Add game** and submit → a search step shows matching results, pick the correct one
+- Select a game in **Remove game** and submit → it and all its entities are deleted immediately
+
+### Entities (per tracked game)
+
+Each game on your watchlist creates 4 entities. Entity IDs use a slugified version of the game title (e.g. `cyberpunk_2077`).
+
+| Entity | Type | Description |
+| ------ | ---- | ----------- |
+| `sensor.gaming_hub_<slug>_best_price` | Sensor | Current lowest price across all stores (USD) |
+| `sensor.gaming_hub_<slug>_best_store` | Sensor | Store offering the best current price |
+| `sensor.gaming_hub_<slug>_discount` | Sensor | Current discount percentage (0–100) |
+| `binary_sensor.gaming_hub_<slug>_on_sale` | Binary Sensor | `on` when any store has a discount > 0% |
+| `binary_sensor.gaming_hub_<slug>_historical_low` | Binary Sensor | `on` when the current best price equals the all-time low |
+
+### Example automation
+
+```yaml
+alias: Notify when Cyberpunk 2077 hits historical low
+trigger:
+  - platform: state
+    entity_id: binary_sensor.gaming_hub_cyberpunk_2077_historical_low
+    to: "on"
+action:
+  - service: notify.mobile_app_your_phone
+    data:
+      title: "Deal alert!"
+      message: >
+        Cyberpunk 2077 is at its all-time low:
+        ${{ states('sensor.gaming_hub_cyberpunk_2077_best_price') }}
+        on {{ states('sensor.gaming_hub_cyberpunk_2077_best_store') }}
+```
+
+---
+
+## Presence Module
+
+Shows the online and gaming status of Steam and Xbox accounts in real time.
+
+### Steam setup
+
+#### 1 — Get a Steam API key
+
+1. Go to [https://steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey) (you must be logged in)
+2. Enter any domain in the **Domain Name** field (e.g. `homeassistant.local`) and click **Register**
+3. Copy the key shown on the next page
+
+#### 2 — Find your Steam ID or Vanity URL
+
+Open your Steam profile in a browser and look at the URL:
+
+- **Custom URL** → `https://steamcommunity.com/id/`**`yourname`** — enter `yourname` as the Vanity URL
+- **Numeric ID** → `https://steamcommunity.com/profiles/`**`76561198XXXXXXXXX`** — enter the 17-digit number directly
+
+You can track multiple accounts: enter one ID or Vanity URL per line in the **Steam IDs / Vanity URLs** field. Vanity URLs are resolved to SteamID64 automatically during setup.
+
+### Xbox setup
+
+Xbox uses Microsoft's **Device Code Flow** — no password is stored in Home Assistant. During setup:
+
+1. The integration displays a short code and a URL (e.g. `https://microsoft.com/devicelogin`)
+2. Open that URL in any browser, sign in with your Microsoft/Xbox account, and enter the code
+3. Return to the HA setup wizard and click **Submit** — the integration checks for authorization
+4. If not yet approved, you will see a "pending" message — wait a few seconds and click Submit again
+5. Once authorized, your account (gamertag) is saved securely in HA storage
+
+If you want to skip Xbox for now, check **Skip Xbox setup** and submit. You can re-run the config flow later to add it.
+
+> **Security note:** tokens are stored in HA's internal storage (not in `configuration.yaml`). They are refreshed automatically before each poll.
+
+### Presence entities
+
+#### Per Steam account
+
+| Entity | Type | Description |
+| ------ | ---- | ----------- |
+| `binary_sensor.gaming_hub_<steamid>_online` | Binary Sensor | `on` when the account is online (any state except Offline) |
+| `sensor.gaming_hub_<steamid>_playing` | Sensor | Current game being played, or `—` if idle |
+| `sensor.gaming_hub_<steamid>_status` | Sensor | Detailed status: `Online`, `Away`, `Busy`, `Snooze`, etc. |
+| `sensor.gaming_hub_<steamid>_hours_recent` | Sensor | Hours played in the last 2 weeks |
+
+#### Per Xbox account
+
+| Entity | Type | Description |
+| ------ | ---- | ----------- |
+| `binary_sensor.gaming_hub_xbox_<xuid>_online` | Binary Sensor | `on` when the account is active on Xbox Live |
+| `sensor.gaming_hub_xbox_<xuid>_playing` | Sensor | Current game or activity, or `—` if idle |
+
+#### Aggregate
+
+| Entity | Type | Description |
+| ------ | ---- | ----------- |
+| `binary_sensor.gaming_hub_someone_is_gaming` | Binary Sensor | `on` when **any** tracked account (Steam or Xbox) is actively playing a game |
+
+### Example automations
+
+```yaml
+# Turn on a Hue light scene when someone starts gaming
+alias: Gaming light on
+trigger:
+  - platform: state
+    entity_id: binary_sensor.gaming_hub_someone_is_gaming
+    to: "on"
+action:
+  - service: hue.activate_scene
+    data:
+      group_name: Living Room
+      scene_name: Gaming
+
+# Send a notification when a specific player comes online
+alias: Notify when friend comes online
+trigger:
+  - platform: state
+    entity_id: binary_sensor.gaming_hub_76561198XXXXXXXXX_online
+    to: "on"
+action:
+  - service: notify.mobile_app_your_phone
+    data:
+      message: >
+        {{ states('sensor.gaming_hub_76561198XXXXXXXXX_status') }} —
+        {{ states('sensor.gaming_hub_76561198XXXXXXXXX_playing') }}
+```
 
 ---
 
@@ -147,6 +299,6 @@ The sensor exposes two attributes so it works with multiple cards out of the box
 | --------- | ----------- | ------ |
 | 0 | Setup & Infrastructure | ✅ Done |
 | 1 | Free Games module | ✅ Done |
-| 2 | Price Tracker module | ⏳ Pending |
-| 3 | Presence module (Steam) | ⏳ Pending |
-| 4 | Presence module (Xbox) | ⏳ Pending |
+| 2 | Price Tracker module | ✅ Done |
+| 3 | Presence module (Steam + Xbox) | ✅ Done |
+| 4 | Notifications & automations helpers | ⏳ Pending |
