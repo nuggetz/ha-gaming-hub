@@ -28,6 +28,7 @@ from .const import (
     CONF_STEAM_API_KEY,
     CONF_STEAM_IDS,
     CONF_XBOX_ACCOUNTS,
+    CONF_XBOX_CLIENT_ID,
     DEFAULT_SCAN_INTERVAL_FREE_GAMES,
     DEFAULT_SCAN_INTERVAL_PRICE_TRACKER,
 )
@@ -38,6 +39,7 @@ STEP_MODULE_SELECTION = "user"
 STEP_FREE_GAMES = "free_games"
 STEP_PRICE_TRACKER = "price_tracker"
 STEP_STEAM = "steam"
+STEP_XBOX_APP = "xbox_app"
 STEP_XBOX = "xbox"
 STEP_SUMMARY = "summary"
 
@@ -55,6 +57,7 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         self._data: dict[str, Any] = {}
         self._xbox_device_code: dict | None = None
+        self._xbox_client_id: str = ""
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -187,7 +190,7 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 else:
                     self._data[CONF_STEAM_API_KEY] = api_key
                     self._data[CONF_STEAM_IDS] = resolved_ids
-                    return await self.async_step_xbox()
+                    return await self.async_step_xbox_app()
 
         schema = vol.Schema(
             {
@@ -217,6 +220,35 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     return None
         return resolved
 
+    async def async_step_xbox_app(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            if user_input.get("skip_xbox"):
+                self._data.setdefault(CONF_XBOX_ACCOUNTS, [])
+                return await self.async_step_summary()
+
+            client_id = (user_input.get(CONF_XBOX_CLIENT_ID) or "").strip()
+            if not client_id:
+                errors[CONF_XBOX_CLIENT_ID] = "xbox_client_id_required"
+            else:
+                self._xbox_client_id = client_id
+                self._data[CONF_XBOX_CLIENT_ID] = client_id
+                return await self.async_step_xbox()
+
+        return self.async_show_form(
+            step_id=STEP_XBOX_APP,
+            data_schema=vol.Schema({
+                vol.Optional(CONF_XBOX_CLIENT_ID, default=""): TextSelector(
+                    TextSelectorConfig(type=TextSelectorType.TEXT)
+                ),
+                vol.Optional("skip_xbox", default=False): BooleanSelector(),
+            }),
+            errors=errors,
+        )
+
     async def async_step_xbox(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.FlowResult:
@@ -224,7 +256,7 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         errors: dict[str, str] = {}
         session = async_get_clientsession(self.hass)
-        dcf = XboxDeviceCodeFlow(session)
+        dcf = XboxDeviceCodeFlow(session, self._xbox_client_id)
 
         if user_input is not None:
             if user_input.get("skip_xbox"):
@@ -234,7 +266,7 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if self._xbox_device_code:
                 try:
                     token_data = await dcf.poll_for_token(self._xbox_device_code["device_code"])
-                    xuid, gamertag = await exchange_token_for_xsts(token_data)
+                    xuid, gamertag = await exchange_token_for_xsts(token_data, self._xbox_client_id)
                     await save_xbox_account(self.hass, xuid, gamertag, token_data)
                     self._data.setdefault(CONF_XBOX_ACCOUNTS, [])
                     self._data[CONF_XBOX_ACCOUNTS].append({"xuid": xuid, "gamertag": gamertag})
@@ -246,7 +278,7 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     errors["base"] = "xbox_expired"
                     self._xbox_device_code = None
                 except Exception as err:
-                    _LOGGER.warning("Xbox auth failed: %s", err)
+                    _LOGGER.warning("Xbox auth failed: %s", err, exc_info=True)
                     errors["base"] = "xbox_auth_failed"
                     self._xbox_device_code = None
 

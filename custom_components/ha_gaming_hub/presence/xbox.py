@@ -35,13 +35,14 @@ class XboxAuthDeclinedError(Exception):
 class XboxDeviceCodeFlow:
     """Manages the Microsoft Device Code Flow to obtain an initial Xbox Live token."""
 
-    def __init__(self, session) -> None:
+    def __init__(self, session, client_id: str) -> None:
         self._session = session
+        self._client_id = client_id
 
     async def start_flow(self) -> dict:
         """Start the device code flow. Returns the device code response dict."""
         data = {
-            "client_id": XBOX_CLIENT_ID,
+            "client_id": self._client_id,
             "scope": _XBL_SCOPES,
         }
         async with self._session.post(
@@ -62,7 +63,7 @@ class XboxDeviceCodeFlow:
         """
         data = {
             "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
-            "client_id": XBOX_CLIENT_ID,
+            "client_id": self._client_id,
             "device_code": device_code,
         }
         async with self._session.post(
@@ -88,9 +89,10 @@ class XboxDeviceCodeFlow:
 class XboxClient:
     """Manages a single authenticated Xbox Live account."""
 
-    def __init__(self, hass, xuid: str) -> None:
+    def __init__(self, hass, xuid: str, client_id: str = XBOX_CLIENT_ID) -> None:
         self._hass = hass
         self._xuid = xuid
+        self._client_id = client_id
         self._store = Store(hass, XBOX_TOKEN_STORAGE_VERSION, XBOX_TOKEN_STORAGE_KEY)
         self._auth_mgr: AuthenticationManager | None = None
         self._xl_client: XboxLiveClient | None = None
@@ -120,7 +122,7 @@ class XboxClient:
 
         self._signed_session = SignedSession()
         self._auth_mgr = AuthenticationManager(
-            self._signed_session, XBOX_CLIENT_ID, "", ""
+            self._signed_session, self._client_id, "", ""
         )
         self._auth_mgr.oauth = oauth
         self._xl_client = XboxLiveClient(self._auth_mgr)
@@ -197,7 +199,7 @@ async def save_xbox_account(hass, xuid: str, gamertag: str, token_data: dict) ->
     await store.async_save(data)
 
 
-async def exchange_token_for_xsts(token_data: dict) -> tuple[str, str]:
+async def exchange_token_for_xsts(token_data: dict, client_id: str = XBOX_CLIENT_ID) -> tuple[str, str]:
     """Exchange a Device Code OAuth token for an XSTS token.
 
     Returns (xuid, gamertag).
@@ -211,7 +213,7 @@ async def exchange_token_for_xsts(token_data: dict) -> tuple[str, str]:
         user_id=token_data.get("user_id", ""),
     )
     async with SignedSession() as session:
-        auth_mgr = AuthenticationManager(session, XBOX_CLIENT_ID, "", "")
+        auth_mgr = AuthenticationManager(session, client_id, "", "")
         auth_mgr.oauth = oauth
         await auth_mgr.refresh_tokens()
         return auth_mgr.xsts_token.xuid, auth_mgr.xsts_token.gamertag

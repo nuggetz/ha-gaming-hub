@@ -20,6 +20,7 @@ class PresenceCoordinator(GamingHubCoordinator):
         steam_api_key: str,
         steam_ids: list[str],
         xbox_accounts: list[dict],
+        xbox_client_id: str = "",
     ) -> None:
         super().__init__(
             hass,
@@ -34,7 +35,7 @@ class PresenceCoordinator(GamingHubCoordinator):
             SteamClient(session, steam_api_key) if steam_api_key and steam_ids else None
         )
         self._xbox_clients: list[XboxClient] = [
-            XboxClient(hass, acc["xuid"]) for acc in xbox_accounts if acc.get("xuid")
+            XboxClient(hass, acc["xuid"], xbox_client_id) for acc in xbox_accounts if acc.get("xuid")
         ]
 
     async def async_config_entry_first_refresh(self) -> None:

@@ -31,6 +31,14 @@
           "steam_ids": "Steam ID / Vanity URL"
         }
       },
+      "xbox_app": {
+        "title": "Presence — Registrazione app Xbox",
+        "description": "Per connettere Xbox Live è necessaria un'app Azure AD gratuita:\n\n1. Vai su **https://portal.azure.com** e accedi con il tuo account Microsoft\n2. Cerca **Registrazioni app** → **Nuova registrazione**\n3. Nome: qualsiasi (es. `HA Gaming Hub`) — Tipi di account: **Solo account Microsoft personali**\n4. Clicca **Registra**\n5. Vai su **Autenticazione** → abilita **Consenti flussi client pubblici**\n6. Copia l'**ID applicazione (client)** e incollalo qui sotto\n\nLascia il campo vuoto e seleziona Salta per configurare Xbox in seguito.",
+        "data": {
+          "xbox_client_id": "ID applicazione (client)",
+          "skip_xbox": "Salta configurazione Xbox"
+        }
+      },
       "xbox": {
         "title": "Presence — Autenticazione Xbox",
         "description": "Vai su **{verification_uri}** e inserisci il codice: **{user_code}**\n\nPoi clicca Invia per verificare l'autorizzazione (scade in {expires_in}s).\n\nSeleziona 'Salta' per configurare Xbox in seguito.",
@@ -51,7 +59,8 @@
       "xbox_pending": "Non ancora autorizzato. Completa l'inserimento del codice sulla pagina Microsoft e clicca di nuovo Invia.",
       "xbox_expired": "Il codice dispositivo è scaduto. È stato generato un nuovo codice — autorizzalo.",
       "xbox_auth_failed": "Autenticazione Xbox fallita. È stato generato un nuovo codice.",
-      "xbox_start_failed": "Impossibile avviare l'autenticazione Xbox. Controlla la connessione."
+      "xbox_client_id_required": "Inserisci un ID applicazione (client) valido oppure seleziona 'Salta configurazione Xbox'.",
+      "xbox_start_failed": "Impossibile avviare l'autenticazione Xbox. Controlla la connessione e che l'ID app sia corretto."
     },
     "abort": {
       "already_configured": "HA Gaming Hub è già configurato."
