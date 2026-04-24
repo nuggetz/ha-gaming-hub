@@ -240,14 +240,13 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):
-        return GamingHubOptionsFlowHandler(config_entry)
+        return GamingHubOptionsFlowHandler()
 
 
 class GamingHubOptionsFlowHandler(config_entries.OptionsFlow):
     """Options flow: manage Price Tracker watchlist."""
 
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        self.config_entry = config_entry
+    def __init__(self) -> None:
         self._search_title: str = ""
         self._search_results: list[dict] = []
         self._coordinator = None
