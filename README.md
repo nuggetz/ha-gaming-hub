@@ -81,34 +81,19 @@ Displays cover art, platform, expiry date, and claim link in a media-style grid.
 
 #### Option C — Built-in Markdown Card (no extra dependencies)
 
-Use a standard Markdown card with a Jinja2 template to render the list:
+Use a standard Markdown card with a Jinja2 template to render the list. The `price` field already contains the ⭐ prefix when the game is in your Steam wishlist:
 
 ```yaml
 type: markdown
 title: 🎮 Free Games
 content: >
-  {% set games = state_attr('sensor.gaming_hub_free_games_count', 'data') %}
-  {% for g in games[1:] %}
-  **[{{ g.title }}]({{ g.deep_link }})**
-  {{ g.rating }} — {{ g.price }}
-  {% if g.release %}⏳ {{ g.release }}{% endif %}
+  {% set games = state_attr('sensor.gaming_hub_free_games_count', 'on_sale') %}
+  {% for g in games %}
+  {% if g.box_art_url %}![]({{ g.box_art_url }}){% endif %}
+  **{{ g.title }}** — {{ g.sale_price }}
+  {% if g.normal_price %}~~{{ g.normal_price }}~~{% endif %}
 
   ---
-  {% endfor %}
-```
-
-To include cover art images inline:
-
-```yaml
-type: markdown
-title: 🎮 Free Games
-content: >
-  {% set games = state_attr('sensor.gaming_hub_free_games_count', 'data') %}
-  {% for g in games[1:] %}
-  {% if g.box_art_url %}![]({{ g.box_art_url }}){% endif %}
-  **[{{ g.title }}]({{ g.deep_link }})** | {{ g.genres | upper }}
-  {{ g.price }}{% if g.release %} — ⏳ {{ g.release }}{% endif %}
-
   {% endfor %}
 ```
 
@@ -139,7 +124,7 @@ The sensor exposes two attributes so it works with multiple cards out of the box
 | `title` | Game title |
 | `box_art_url` | Cover art URL |
 | `backgroundart` | Wide art URL (same as cover) |
-| `sale_price` | `"Free · Steam"` / `"Free · Epic Games"` etc. — store name always shown here |
+| `sale_price` | `"Free · Steam"` / `"Free · Epic Games"` etc. Prefixed with ⭐ when the game is in your Steam wishlist |
 | `normal_price` | `"$X.XX"` if the original value is known from GamerPower, otherwise empty |
 | `percent_off` | Always `100` |
 
@@ -266,23 +251,8 @@ content: >
   {% set games = state_attr('sensor.gaming_hub_price_tracker_deals', 'on_sale') %}
   {% for g in games %}
   {% if g.box_art_url %}![]({{ g.box_art_url }}){% endif %}
-  **{{ g.title }}**{% if '⭐' in g.sale_price %} — ⭐ _in your Steam wishlist_{% endif %}
-  {{ g.sale_price }}{% if g.normal_price %} ~~{{ g.normal_price }}~~{% endif %}{% if g.percent_off %} (-{{ g.percent_off }}%){% endif %}
-
-  ---
-  {% endfor %}
-```
-
-To show only games currently on sale:
-
-```yaml
-type: markdown
-title: 🎮 Active Deals
-content: >
-  {% set games = state_attr('sensor.gaming_hub_price_tracker_deals', 'on_sale') %}
-  {% for g in games if g.percent_off > 0 %}
-  **{{ g.title }}**{% if '⭐' in g.sale_price %} ⭐{% endif %}
-  {{ g.sale_price }}{% if g.normal_price %} ~~{{ g.normal_price }}~~{% endif %} (-{{ g.percent_off }}%)
+  **{{ g.title }}** — {{ g.sale_price }}
+  {% if g.normal_price %} ~~{{ g.normal_price }}~~{% endif %}{% if g.percent_off %} (-{{ g.percent_off }}%){% endif %}
 
   ---
   {% endfor %}
