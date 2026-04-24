@@ -53,10 +53,23 @@
   "options": {
     "step": {
       "init": {
-        "title": "HA Gaming Hub — Opzioni",
-        "description": "La configurazione delle opzioni (watchlist, account, intervalli di polling) sarà disponibile in una versione futura.",
-        "data": {}
+        "title": "Price Tracker — Watchlist",
+        "description": "Watchlist attuale:\n{watchlist}\n\nDigita un titolo per cercare e aggiungere un gioco. Selezionane uno per rimuoverlo.",
+        "data": {
+          "add_game_title": "Aggiungi gioco (cerca per titolo)",
+          "remove_game_slug": "Rimuovi gioco"
+        }
+      },
+      "watchlist_search": {
+        "title": "Seleziona gioco",
+        "description": "Risultati per \"{search_title}\". Seleziona il gioco corretto da aggiungere.",
+        "data": {
+          "game_choice": "Gioco"
+        }
       }
+    },
+    "error": {
+      "no_results": "Nessun gioco trovato per quel titolo. Invia per tornare indietro e riprovare."
     }
   }
 }

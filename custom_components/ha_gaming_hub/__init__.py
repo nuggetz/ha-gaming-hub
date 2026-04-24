@@ -8,6 +8,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .const import (
     DOMAIN,
     CONF_MODULES,
+    CONF_ITAD_API_KEY,
     MODULE_FREE_GAMES,
     MODULE_PRICE_TRACKER,
     MODULE_PRESENCE,
@@ -37,7 +38,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     if MODULE_PRICE_TRACKER in enabled_modules:
         from .price_tracker.coordinator import PriceTrackerCoordinator
-        coordinator = PriceTrackerCoordinator(hass, session, entry.data)
+        scan_interval = int(entry.data.get("scan_interval_price_tracker", DEFAULT_SCAN_INTERVAL_PRICE_TRACKER))
+        api_key_itad = entry.data.get(CONF_ITAD_API_KEY) or None
+        coordinator = PriceTrackerCoordinator(hass, session, scan_interval, api_key_itad)
         await coordinator.async_config_entry_first_refresh()
         coordinators[MODULE_PRICE_TRACKER] = coordinator
 

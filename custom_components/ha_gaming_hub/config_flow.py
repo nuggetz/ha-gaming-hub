@@ -4,6 +4,7 @@ from typing import Any
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
     SelectSelector,
     SelectSelectorConfig,
@@ -40,6 +41,8 @@ STEP_SUMMARY = "summary"
 
 SCAN_INTERVAL_FREE_GAMES_KEY = "scan_interval_free_games"
 SCAN_INTERVAL_PRICE_TRACKER_KEY = "scan_interval_price_tracker"
+
+_REMOVE_NONE = "_none_"
 
 
 class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -241,21 +244,103 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class GamingHubOptionsFlowHandler(config_entries.OptionsFlow):
-    """Options flow handler (placeholder — logic added in future milestones)."""
+    """Options flow: manage Price Tracker watchlist."""
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         self.config_entry = config_entry
+        self._search_title: str = ""
+        self._search_results: list[dict] = []
+        self._coordinator = None
+
+    def _get_coordinator(self):
+        coordinators = self.hass.data.get(DOMAIN, {}).get(
+            self.config_entry.entry_id, {}
+        ).get("coordinators", {})
+        return coordinators.get(MODULE_PRICE_TRACKER)
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.FlowResult:
+        enabled = self.config_entry.data.get(CONF_MODULES, [])
+        if MODULE_PRICE_TRACKER not in enabled:
+            return self.async_create_entry(title="", data={})
+
+        self._coordinator = self._get_coordinator()
+
+        if user_input is not None:
+            add_title = (user_input.get("add_game_title") or "").strip()
+            remove_slug = user_input.get("remove_game_slug", _REMOVE_NONE)
+
+            if add_title:
+                self._search_title = add_title
+                return await self.async_step_watchlist_search()
+
+            if remove_slug and remove_slug != _REMOVE_NONE and self._coordinator:
+                await self._coordinator.async_remove_game(remove_slug)
+
+            return self.async_create_entry(title="", data={})
+
+        watchlist = self._coordinator.watchlist if self._coordinator else []
+        titles = "\n".join(f"• {g['title']}" for g in watchlist) if watchlist else "(empty)"
+
+        schema_dict: dict = {
+            vol.Optional("add_game_title", default=""): TextSelector(
+                TextSelectorConfig(type=TextSelectorType.TEXT)
+            ),
+        }
+        if watchlist:
+            remove_options = [{"value": _REMOVE_NONE, "label": "— don't remove —"}] + [
+                {"value": g["slug"], "label": g["title"]} for g in watchlist
+            ]
+            schema_dict[vol.Optional("remove_game_slug", default=_REMOVE_NONE)] = SelectSelector(
+                SelectSelectorConfig(options=remove_options, mode=SelectSelectorMode.LIST)
+            )
+
         return self.async_show_form(
             step_id="init",
-            data_schema=vol.Schema({}),
-            description_placeholders={
-                "info": (
-                    "Options configuration (watchlist, accounts, polling intervals) "
-                    "will be available in a future release."
-                )
-            },
+            data_schema=vol.Schema(schema_dict),
+            description_placeholders={"watchlist": titles},
+        )
+
+    async def async_step_watchlist_search(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        if user_input is not None:
+            choice = user_input.get("game_choice")
+            if choice and self._coordinator:
+                for result in self._search_results:
+                    if result["id"] == choice:
+                        await self._coordinator.async_add_game({
+                            "title": result["title"],
+                            "itad_id": result["id"],
+                            "slug": result.get("slug") or None,
+                        })
+                        break
+            return self.async_create_entry(title="", data={})
+
+        from .price_tracker.itad import ITADClient
+        api_key = self.config_entry.data.get(CONF_ITAD_API_KEY) or None
+        session = async_get_clientsession(self.hass)
+        itad = ITADClient(session, api_key)
+        self._search_results = await itad.search_game(self._search_title)
+
+        if not self._search_results:
+            return self.async_show_form(
+                step_id="watchlist_search",
+                data_schema=vol.Schema({}),
+                description_placeholders={"search_title": self._search_title},
+                errors={"base": "no_results"},
+            )
+
+        options = [
+            {"value": r["id"], "label": r["title"]} for r in self._search_results
+        ]
+        return self.async_show_form(
+            step_id="watchlist_search",
+            data_schema=vol.Schema({
+                vol.Required("game_choice"): SelectSelector(
+                    SelectSelectorConfig(options=options, mode=SelectSelectorMode.LIST)
+                ),
+            }),
+            description_placeholders={"search_title": self._search_title},
         )
