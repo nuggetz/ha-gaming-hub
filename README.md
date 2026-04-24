@@ -227,6 +227,63 @@ The `sensor.gaming_hub_<slug>_best_price` entity also exposes:
 | `cheapest_ever_date` | Date of the all-time low |
 | `in_steam_wishlist` | `true` if the game is in your Steam wishlist (requires wishlist setup above) |
 
+### Displaying the watchlist in the dashboard
+
+The integration creates a `sensor.gaming_hub_price_tracker_deals` entity that aggregates your entire watchlist in a format compatible with the Nintendo Wishlist Card and standard Markdown cards.
+
+| Attribute | Description |
+| --------- | ----------- |
+| state | Number of games currently on sale |
+| `on_sale` | List of all tracked games with price, store, discount, and cover art |
+
+#### Nintendo Wishlist Card — Price Tracker (best looking, requires HACS frontend install)
+
+Install **Nintendo Wishlist Card** from HACS → Frontend, then add this card to your dashboard:
+
+```yaml
+type: custom:nintendo-wishlist-card
+entity: sensor.gaming_hub_price_tracker_deals
+title: Price Tracker
+```
+
+Each entry shows the current best price and store in the `sale_price` field. If you configured Steam wishlist matching, games that are also in your Steam wishlist are prefixed with ⭐:
+
+- `⭐ $19.99 · Steam` — game is in your Steam wishlist and currently on sale
+- `$19.99 · Steam` — game is not in your Steam wishlist (or wishlist matching is not configured)
+
+The `normal_price` field shows the original retail price (with strikethrough in the card) and `percent_off` drives the discount badge.
+
+#### Markdown Card — Price Tracker (no extra dependencies)
+
+```yaml
+type: markdown
+title: 🎮 Price Tracker
+content: >
+  {% set games = state_attr('sensor.gaming_hub_price_tracker_deals', 'on_sale') %}
+  {% for g in games %}
+  {% if g.box_art_url %}![]({{ g.box_art_url }}){% endif %}
+  **{{ g.title }}**{% if '⭐' in g.sale_price %} — ⭐ _in your Steam wishlist_{% endif %}
+  {{ g.sale_price }}{% if g.normal_price %} ~~{{ g.normal_price }}~~{% endif %}{% if g.percent_off %} (-{{ g.percent_off }}%){% endif %}
+
+  ---
+  {% endfor %}
+```
+
+To show only games currently on sale:
+
+```yaml
+type: markdown
+title: 🎮 Active Deals
+content: >
+  {% set games = state_attr('sensor.gaming_hub_price_tracker_deals', 'on_sale') %}
+  {% for g in games if g.percent_off > 0 %}
+  **{{ g.title }}**{% if '⭐' in g.sale_price %} ⭐{% endif %}
+  {{ g.sale_price }}{% if g.normal_price %} ~~{{ g.normal_price }}~~{% endif %} (-{{ g.percent_off }}%)
+
+  ---
+  {% endfor %}
+```
+
 ### Example automation
 
 ```yaml

@@ -119,6 +119,8 @@ class PriceTrackerCoordinator(GamingHubCoordinator):
                 "on_sale": False,
                 "historical_low": False,
                 "in_steam_wishlist": False,
+                "thumb": None,
+                "retail_price": None,
             }
 
             if isinstance(cs_result, dict) and cs_result:
@@ -127,6 +129,8 @@ class PriceTrackerCoordinator(GamingHubCoordinator):
                 entry["best_store"] = cs_result.get("best_store")
                 entry["discount_pct"] = cs_result.get("discount_pct", 0.0)
                 entry["on_sale"] = entry["discount_pct"] > 0
+                entry["thumb"] = cs_result.get("thumb")
+                entry["retail_price"] = cs_result.get("retail_price")
 
                 cheapest_ever = cs_result.get("cheapest_ever_price")
                 if best_price is not None and cheapest_ever is not None and cheapest_ever > 0:

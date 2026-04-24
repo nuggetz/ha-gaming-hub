@@ -33,6 +33,8 @@ async def async_setup_entry(
     if MODULE_PRICE_TRACKER in coordinators:
         coordinator = coordinators[MODULE_PRICE_TRACKER]
 
+        entities.append(PriceTrackerDealsSensor(coordinator, entry.entry_id))
+
         for game in coordinator.watchlist:
             entities.extend(_price_tracker_sensors(coordinator, entry.entry_id, game))
 
@@ -229,6 +231,53 @@ class GameDiscountSensor(_GameBaseSensor):
     @property
     def native_value(self) -> float:
         return self._game_data().get("discount_pct", 0.0)
+
+
+class PriceTrackerDealsSensor(CoordinatorEntity, SensorEntity):
+    _attr_has_entity_name = True
+    _attr_name = "Price Tracker Deals"
+    _attr_unique_id = "gaming_hub_price_tracker_deals"
+    _attr_icon = "mdi:tag-multiple"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator, entry_id: str) -> None:
+        super().__init__(coordinator)
+        self._attr_device_info = _device_info(entry_id)
+
+    @property
+    def native_value(self) -> int:
+        return sum(1 for v in (self.coordinator.data or {}).values() if v.get("on_sale"))
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        on_sale_entries = []
+        for data in sorted(
+            (self.coordinator.data or {}).values(),
+            key=lambda d: d.get("title", ""),
+        ):
+            best_price = data.get("best_price")
+            retail_price = data.get("retail_price")
+            best_store = data.get("best_store", "")
+            in_wishlist = data.get("in_steam_wishlist", False)
+            discount = data.get("discount_pct", 0.0)
+            thumb = data.get("thumb") or ""
+
+            price_str = f"${best_price:.2f}" if best_price is not None else "N/A"
+            sale_price = (
+                f"⭐ {price_str} · {best_store}" if in_wishlist else f"{price_str} · {best_store}"
+            )
+            normal_price = f"${retail_price:.2f}" if retail_price else ""
+
+            on_sale_entries.append({
+                "title": data.get("title", ""),
+                "box_art_url": thumb,
+                "backgroundart": thumb,
+                "sale_price": sale_price,
+                "normal_price": normal_price,
+                "percent_off": int(discount),
+            })
+
+        return {"on_sale": on_sale_entries}
 
 
 # ---------------------------------------------------------------------------

@@ -88,9 +88,17 @@ class CheapSharkClient:
             cheapest_ever_date = cheapest_ever.get("date")
 
         steam_app_id: str | None = None
+        thumb: str | None = None
         info = data.get("info", {})
         if info.get("steamAppID"):
             steam_app_id = str(info["steamAppID"])
+        if info.get("thumb"):
+            thumb = str(info["thumb"])
+
+        try:
+            retail_price: float | None = float(best_deal.get("retailPrice", 0)) or None
+        except (ValueError, TypeError):
+            retail_price = None
 
         return {
             "best_price": best_price,
@@ -99,6 +107,8 @@ class CheapSharkClient:
             "cheapest_ever_price": cheapest_ever_price,
             "cheapest_ever_date": cheapest_ever_date,
             "steam_app_id": steam_app_id,
+            "thumb": thumb,
+            "retail_price": retail_price,
             "all_deals": [
                 {
                     "store": stores.get(str(d.get("storeID", "")), f"Store {d.get('storeID')}"),
