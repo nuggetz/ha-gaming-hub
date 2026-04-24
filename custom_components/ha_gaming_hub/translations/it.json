@@ -10,18 +10,19 @@
       },
       "free_games": {
         "title": "Free Games — Configurazione",
-        "description": "Configura il modulo Free Games. Fonti: Epic Games Store e GamerPower. Nessuna chiave API richiesta.",
+        "description": "Configura il modulo Free Games. Fonti: Epic Games Store e GamerPower. Nessuna chiave API richiesta.\n\nOpzionale: inserisci il tuo SteamID64 per contrassegnare con ⭐ i giochi gratuiti presenti nella tua wishlist Steam.",
         "data": {
-          "scan_interval_free_games": "Intervallo di aggiornamento (secondi)"
+          "scan_interval_free_games": "Intervallo di aggiornamento (secondi)",
+          "steam_wishlist_id": "Il tuo SteamID64 (opzionale, per il badge wishlist)"
         }
       },
       "price_tracker": {
         "title": "Price Tracker — Configurazione",
-        "description": "Configura il modulo Price Tracker. La chiave ITAD è opzionale; lascia vuoto per usare solo CheapShark.\n\nOpzionale: inserisci la tua chiave API Steam e il tuo SteamID64 per abilitare il confronto con la wishlist (mostra un badge quando un gioco tracciato è nella tua wishlist Steam). Entrambi i campi devono essere compilati insieme o lasciati vuoti.",
+        "description": "Configura il modulo Price Tracker. La chiave ITAD è opzionale; lascia vuoto per usare solo CheapShark.\n\nOpzionale: inserisci il tuo SteamID64 per abilitare il confronto con la wishlist. La chiave API Steam serve solo se vuoi pre-compilarla per il modulo Presence.",
         "data": {
           "itad_api_key": "Chiave API IsThereAnyDeal (opzionale)",
           "scan_interval_price_tracker": "Intervallo di aggiornamento (secondi)",
-          "steam_api_key": "Chiave API Steam (opzionale, per wishlist)",
+          "steam_api_key": "Chiave API Steam (opzionale, pre-compilazione Presence)",
           "steam_wishlist_id": "Il tuo SteamID64 (opzionale, per wishlist)"
         }
       },

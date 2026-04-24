@@ -36,7 +36,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if MODULE_FREE_GAMES in enabled_modules:
         from .free_games.coordinator import FreeGamesCoordinator
         scan_interval = entry.data.get("scan_interval_free_games", DEFAULT_SCAN_INTERVAL_FREE_GAMES)
-        coordinator = FreeGamesCoordinator(hass, session, int(scan_interval))
+        steam_wishlist_id = entry.data.get(CONF_STEAM_WISHLIST_ID) or None
+        coordinator = FreeGamesCoordinator(hass, session, int(scan_interval), steam_wishlist_id)
         await coordinator.async_config_entry_first_refresh()
         coordinators[MODULE_FREE_GAMES] = coordinator
 

@@ -10,18 +10,19 @@
       },
       "free_games": {
         "title": "Free Games — Configuration",
-        "description": "Configure the Free Games module. Sources: Epic Games Store and GamerPower. No API key required.",
+        "description": "Configure the Free Games module. Sources: Epic Games Store and GamerPower. No API key required.\n\nOptional: enter your SteamID64 to mark free games that are also in your Steam wishlist with a ⭐ badge.",
         "data": {
-          "scan_interval_free_games": "Polling interval (seconds)"
+          "scan_interval_free_games": "Polling interval (seconds)",
+          "steam_wishlist_id": "Your SteamID64 (optional, for wishlist badge)"
         }
       },
       "price_tracker": {
         "title": "Price Tracker — Configuration",
-        "description": "Configure the Price Tracker module. The ITAD API key is optional; leave blank to use CheapShark only.\n\nOptional: enter your Steam API Key and your SteamID64 to enable wishlist matching (shows a badge when a tracked game is in your Steam wishlist). Both fields must be filled together or left blank.",
+        "description": "Configure the Price Tracker module. The ITAD API key is optional; leave blank to use CheapShark only.\n\nOptional: enter your SteamID64 to enable wishlist matching. Steam API Key is only needed here if you also want to pre-fill it for the Presence module.",
         "data": {
           "itad_api_key": "IsThereAnyDeal API Key (optional)",
           "scan_interval_price_tracker": "Polling interval (seconds)",
-          "steam_api_key": "Steam API Key (optional, for wishlist matching)",
+          "steam_api_key": "Steam API Key (optional, for Presence pre-fill)",
           "steam_wishlist_id": "Your SteamID64 (optional, for wishlist matching)"
         }
       },

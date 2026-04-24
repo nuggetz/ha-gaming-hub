@@ -6,7 +6,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
 from ..coordinator import GamingHubCoordinator
-from ..const import DEFAULT_SCAN_INTERVAL_PRICE_TRACKER, STEAM_API_URL
+from ..const import DEFAULT_SCAN_INTERVAL_PRICE_TRACKER
 from . import STORAGE_KEY, STORAGE_VERSION, load_watchlist, add_game_to_watchlist, remove_game_from_watchlist, _slugify
 from .cheapshark import CheapSharkClient
 from .itad import ITADClient
@@ -76,16 +76,18 @@ class PriceTrackerCoordinator(GamingHubCoordinator):
         await self.async_refresh()
 
     async def _async_fetch_steam_wishlist(self) -> set[str]:
-        if not self._steam_api_key or not self._steam_wishlist_id:
+        if not self._steam_wishlist_id:
             return set()
-        url = f"{STEAM_API_URL}/IWishlistService/GetWishlist/v1/"
-        params = {"key": self._steam_api_key, "steamid": self._steam_wishlist_id}
+        url = f"https://store.steampowered.com/wishlist/profiles/{self._steam_wishlist_id}/wishlistdata/"
         try:
-            async with self.session.get(url, params=params) as resp:
-                resp.raise_for_status()
+            async with self.session.get(url) as resp:
+                if resp.status != 200:
+                    _LOGGER.debug("Steam wishlist returned HTTP %s", resp.status)
+                    return set()
                 data = await resp.json(content_type=None)
-            items = data.get("response", {}).get("items", [])
-            return {str(item["appid"]) for item in items if "appid" in item}
+            if not isinstance(data, dict):
+                return set()
+            return set(data.keys())
         except Exception as err:
             _LOGGER.warning("Steam wishlist fetch failed: %s", err)
             return set()

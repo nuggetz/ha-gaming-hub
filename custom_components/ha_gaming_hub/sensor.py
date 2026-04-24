@@ -120,10 +120,12 @@ class FreeGamesCountSensor(CoordinatorEntity, SensorEntity):
             worth = g.get("worth")
             cover = g.get("cover", "")
             store = g.get("store", g.get("platform", ""))
+            in_wishlist = g.get("in_steam_wishlist", False)
+            wishlist_badge = "⭐ " if in_wishlist else ""
             media_entries.append({
                 "title": g.get("title", ""),
                 "rating": g.get("platform", ""),
-                "price": "FREE" + (f" (${worth:.2f} value)" if worth else ""),
+                "price": f"{wishlist_badge}FREE" + (f" (${worth:.2f} value)" if worth else ""),
                 "release": f"Expires {end_dt.strftime('%-d %b %Y')}" if end_dt else "",
                 "genres": g.get("type", ""),
                 "airdate": end_dt.strftime("%Y-%m-%d") if end_dt else "unknown",
@@ -136,7 +138,7 @@ class FreeGamesCountSensor(CoordinatorEntity, SensorEntity):
                 "title": g.get("title", ""),
                 "box_art_url": cover,
                 "backgroundart": cover,
-                "sale_price": f"Free · {store}" if store else "Free",
+                "sale_price": f"{wishlist_badge}Free · {store}" if store else f"{wishlist_badge}Free",
                 "normal_price": f"${worth:.2f}" if worth else "",
                 "percent_off": 100,
             })
