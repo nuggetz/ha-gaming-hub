@@ -25,16 +25,18 @@
       },
       "steam": {
         "title": "Presence — Steam Configuration",
-        "description": "Enter your Steam API key and the Steam IDs or vanity URLs to track.",
+        "description": "Enter your Steam API key and the Steam IDs or vanity URLs to track. Vanity URLs will be resolved automatically.",
         "data": {
           "steam_api_key": "Steam API Key",
           "steam_ids": "Steam IDs / Vanity URLs"
         }
       },
       "xbox": {
-        "title": "Presence — Xbox Configuration",
-        "description": "Xbox setup will be completed after saving via the Options Flow. Click Submit to continue.",
-        "data": {}
+        "title": "Presence — Xbox Authentication",
+        "description": "Go to **{verification_uri}** and enter the code: **{user_code}**\n\nThen click Submit to check authorization (expires in {expires_in}s).\n\nCheck 'Skip' to configure Xbox later.",
+        "data": {
+          "skip_xbox": "Skip Xbox setup"
+        }
       },
       "summary": {
         "title": "Configuration Summary",
@@ -44,7 +46,12 @@
     },
     "error": {
       "no_modules_selected": "Please select at least one module.",
-      "steam_key_required": "A Steam API key is required when the Presence module is enabled."
+      "steam_key_required": "A Steam API key is required when the Presence module is enabled.",
+      "steam_id_resolve_failed": "One or more Steam IDs or vanity URLs could not be resolved. Check the values and try again.",
+      "xbox_pending": "Not authorized yet. Complete the code entry at the Microsoft page and click Submit again.",
+      "xbox_expired": "The device code has expired. A new code has been generated — please authorize it.",
+      "xbox_auth_failed": "Xbox authentication failed. A new code has been generated.",
+      "xbox_start_failed": "Could not start Xbox authentication. Check your internet connection."
     },
     "abort": {
       "already_configured": "HA Gaming Hub is already configured."

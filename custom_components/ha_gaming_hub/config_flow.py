@@ -6,6 +6,7 @@ from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
+    BooleanSelector,
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
@@ -52,6 +53,7 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         self._data: dict[str, Any] = {}
+        self._xbox_device_code: dict | None = None
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -172,12 +174,19 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            if not user_input.get(CONF_STEAM_API_KEY):
+            api_key = user_input.get(CONF_STEAM_API_KEY, "").strip()
+            raw_ids: list[str] = [s.strip() for s in user_input.get(CONF_STEAM_IDS, []) if s.strip()]
+
+            if not api_key:
                 errors[CONF_STEAM_API_KEY] = "steam_key_required"
             else:
-                self._data[CONF_STEAM_API_KEY] = user_input[CONF_STEAM_API_KEY]
-                self._data[CONF_STEAM_IDS] = user_input.get(CONF_STEAM_IDS, [])
-                return await self.async_step_xbox()
+                resolved_ids = await self._resolve_steam_ids(api_key, raw_ids)
+                if resolved_ids is None:
+                    errors[CONF_STEAM_IDS] = "steam_id_resolve_failed"
+                else:
+                    self._data[CONF_STEAM_API_KEY] = api_key
+                    self._data[CONF_STEAM_IDS] = resolved_ids
+                    return await self.async_step_xbox()
 
         schema = vol.Schema(
             {
@@ -185,32 +194,83 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     TextSelectorConfig(type=TextSelectorType.PASSWORD)
                 ),
                 vol.Optional(CONF_STEAM_IDS, default=[]): TextSelector(
-                    TextSelectorConfig(
-                        type=TextSelectorType.TEXT,
-                        multiple=True,
-                    )
+                    TextSelectorConfig(type=TextSelectorType.TEXT, multiple=True)
                 ),
             }
         )
+        return self.async_show_form(step_id=STEP_STEAM, data_schema=schema, errors=errors)
 
-        return self.async_show_form(
-            step_id=STEP_STEAM,
-            data_schema=schema,
-            errors=errors,
-        )
+    async def _resolve_steam_ids(self, api_key: str, raw_ids: list[str]) -> list[str] | None:
+        from .presence.steam import SteamClient
+        session = async_get_clientsession(self.hass)
+        client = SteamClient(session, api_key)
+        resolved = []
+        for raw in raw_ids:
+            if raw.isdigit() and len(raw) == 17:
+                resolved.append(raw)
+            else:
+                steam_id = await client.resolve_vanity_url(raw)
+                if steam_id:
+                    resolved.append(steam_id)
+                else:
+                    return None
+        return resolved
 
     async def async_step_xbox(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.FlowResult:
+        from .presence.xbox import XboxDeviceCodeFlow, XboxAuthPendingError, XboxAuthExpiredError, exchange_token_for_xsts, save_xbox_account
+
+        errors: dict[str, str] = {}
+        session = async_get_clientsession(self.hass)
+        dcf = XboxDeviceCodeFlow(session)
+
         if user_input is not None:
-            return await self.async_step_summary()
+            if user_input.get("skip_xbox"):
+                self._data.setdefault(CONF_XBOX_ACCOUNTS, [])
+                return await self.async_step_summary()
+
+            if self._xbox_device_code:
+                try:
+                    token_data = await dcf.poll_for_token(self._xbox_device_code["device_code"])
+                    xuid, gamertag = await exchange_token_for_xsts(token_data)
+                    await save_xbox_account(self.hass, xuid, gamertag, token_data)
+                    self._data.setdefault(CONF_XBOX_ACCOUNTS, [])
+                    self._data[CONF_XBOX_ACCOUNTS].append({"xuid": xuid, "gamertag": gamertag})
+                    self._xbox_device_code = None
+                    return await self.async_step_summary()
+                except XboxAuthPendingError:
+                    errors["base"] = "xbox_pending"
+                except XboxAuthExpiredError:
+                    errors["base"] = "xbox_expired"
+                    self._xbox_device_code = None
+                except Exception as err:
+                    _LOGGER.warning("Xbox auth failed: %s", err)
+                    errors["base"] = "xbox_auth_failed"
+                    self._xbox_device_code = None
+
+        if not self._xbox_device_code:
+            try:
+                self._xbox_device_code = await dcf.start_flow()
+            except Exception as err:
+                _LOGGER.warning("Xbox device code start failed: %s", err)
+                errors["base"] = "xbox_start_failed"
+
+        placeholders: dict[str, str] = {}
+        if self._xbox_device_code:
+            placeholders = {
+                "user_code": self._xbox_device_code.get("user_code", ""),
+                "verification_uri": self._xbox_device_code.get("verification_uri", "https://microsoft.com/devicelogin"),
+                "expires_in": str(self._xbox_device_code.get("expires_in", 900)),
+            }
 
         return self.async_show_form(
             step_id=STEP_XBOX,
-            data_schema=vol.Schema({}),
-            description_placeholders={
-                "info": "Xbox setup will be completed after saving via the Options Flow."
-            },
+            data_schema=vol.Schema({
+                vol.Optional("skip_xbox", default=False): BooleanSelector(),
+            }),
+            description_placeholders=placeholders,
+            errors=errors,
         )
 
     async def async_step_summary(

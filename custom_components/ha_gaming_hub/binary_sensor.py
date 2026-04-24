@@ -8,7 +8,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, MODULE_PRICE_TRACKER
+from .const import DOMAIN, MODULE_PRICE_TRACKER, MODULE_PRESENCE
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -43,6 +43,14 @@ async def async_setup_entry(
                     ent_reg.async_remove(entity_id)
 
         coordinator.register_binary_sensor_callbacks(on_game_added, on_game_removed)
+
+    if MODULE_PRESENCE in coordinators:
+        coordinator = coordinators[MODULE_PRESENCE]
+        entities.append(SomeoneIsGamingBinarySensor(coordinator, entry.entry_id))
+        for account_key, acc in (coordinator.data or {}).get("accounts", {}).items():
+            platform = acc.get("platform", "")
+            name = acc.get("name") or acc.get("gamertag") or account_key
+            entities.append(AccountOnlineBinarySensor(coordinator, entry.entry_id, account_key, name, platform))
 
     async_add_entities(entities)
 
@@ -100,3 +108,41 @@ class GameHistoricalLowBinarySensor(_GameBaseBinarySensor):
     @property
     def is_on(self) -> bool:
         return self._game_data().get("historical_low", False)
+
+
+# ---------------------------------------------------------------------------
+# Presence binary sensors
+# ---------------------------------------------------------------------------
+
+class AccountOnlineBinarySensor(CoordinatorEntity, BinarySensorEntity):
+    _attr_has_entity_name = True
+    _attr_device_class = BinarySensorDeviceClass.PRESENCE
+
+    def __init__(self, coordinator, entry_id: str, account_key: str, name: str, platform: str) -> None:
+        super().__init__(coordinator)
+        self._account_key = account_key
+        self._attr_device_info = _device_info(entry_id)
+        self._attr_icon = "mdi:steam" if platform == "Steam" else "mdi:microsoft-xbox"
+        self._attr_name = f"{name} Online"
+        self._attr_unique_id = f"gaming_hub_{account_key}_online"
+
+    @property
+    def is_on(self) -> bool:
+        accounts = (self.coordinator.data or {}).get("accounts", {})
+        return accounts.get(self._account_key, {}).get("online", False)
+
+
+class SomeoneIsGamingBinarySensor(CoordinatorEntity, BinarySensorEntity):
+    _attr_has_entity_name = True
+    _attr_name = "Someone Is Gaming"
+    _attr_unique_id = "gaming_hub_someone_is_gaming"
+    _attr_device_class = BinarySensorDeviceClass.PRESENCE
+    _attr_icon = "mdi:gamepad-variant"
+
+    def __init__(self, coordinator, entry_id: str) -> None:
+        super().__init__(coordinator)
+        self._attr_device_info = _device_info(entry_id)
+
+    @property
+    def is_on(self) -> bool:
+        return (self.coordinator.data or {}).get("someone_is_gaming", False)

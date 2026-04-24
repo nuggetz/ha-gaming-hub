@@ -25,16 +25,18 @@
       },
       "steam": {
         "title": "Presence — Configurazione Steam",
-        "description": "Inserisci la tua chiave API Steam e gli Steam ID o vanity URL da monitorare.",
+        "description": "Inserisci la tua chiave API Steam e gli Steam ID o vanity URL da monitorare. I vanity URL verranno risolti automaticamente.",
         "data": {
           "steam_api_key": "Chiave API Steam",
           "steam_ids": "Steam ID / Vanity URL"
         }
       },
       "xbox": {
-        "title": "Presence — Configurazione Xbox",
-        "description": "La configurazione Xbox sarà completata dopo il salvataggio tramite Options Flow. Clicca Invia per continuare.",
-        "data": {}
+        "title": "Presence — Autenticazione Xbox",
+        "description": "Vai su **{verification_uri}** e inserisci il codice: **{user_code}**\n\nPoi clicca Invia per verificare l'autorizzazione (scade in {expires_in}s).\n\nSeleziona 'Salta' per configurare Xbox in seguito.",
+        "data": {
+          "skip_xbox": "Salta configurazione Xbox"
+        }
       },
       "summary": {
         "title": "Riepilogo configurazione",
@@ -44,7 +46,12 @@
     },
     "error": {
       "no_modules_selected": "Seleziona almeno un modulo.",
-      "steam_key_required": "La chiave API Steam è obbligatoria quando il modulo Presence è abilitato."
+      "steam_key_required": "La chiave API Steam è obbligatoria quando il modulo Presence è abilitato.",
+      "steam_id_resolve_failed": "Uno o più Steam ID o vanity URL non sono stati risolti. Controlla i valori e riprova.",
+      "xbox_pending": "Non ancora autorizzato. Completa l'inserimento del codice sulla pagina Microsoft e clicca di nuovo Invia.",
+      "xbox_expired": "Il codice dispositivo è scaduto. È stato generato un nuovo codice — autorizzalo.",
+      "xbox_auth_failed": "Autenticazione Xbox fallita. È stato generato un nuovo codice.",
+      "xbox_start_failed": "Impossibile avviare l'autenticazione Xbox. Controlla la connessione."
     },
     "abort": {
       "already_configured": "HA Gaming Hub è già configurato."

@@ -8,7 +8,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, MODULE_FREE_GAMES, MODULE_PRICE_TRACKER
+from .const import DOMAIN, MODULE_FREE_GAMES, MODULE_PRICE_TRACKER, MODULE_PRESENCE
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -50,6 +50,15 @@ async def async_setup_entry(
                     ent_reg.async_remove(entity_id)
 
         coordinator.register_sensor_callbacks(on_game_added, on_game_removed)
+
+    if MODULE_PRESENCE in coordinators:
+        coordinator = coordinators[MODULE_PRESENCE]
+        for account_key, acc in (coordinator.data or {}).get("accounts", {}).items():
+            platform = acc.get("platform", "")
+            name = acc.get("name") or acc.get("gamertag") or account_key
+            entities.append(AccountPlayingSensor(coordinator, entry.entry_id, account_key, name, platform))
+            if platform == "Steam":
+                entities.append(SteamHoursRecentSensor(coordinator, entry.entry_id, account_key, name))
 
     async_add_entities(entities)
 
@@ -219,3 +228,49 @@ class GameDiscountSensor(_GameBaseSensor):
     @property
     def native_value(self) -> float:
         return self._game_data().get("discount_pct", 0.0)
+
+
+# ---------------------------------------------------------------------------
+# Presence sensors
+# ---------------------------------------------------------------------------
+
+class _AccountBaseSensor(CoordinatorEntity, SensorEntity):
+    _attr_has_entity_name = True
+
+    def __init__(self, coordinator, entry_id: str, account_key: str, name: str, platform: str) -> None:
+        super().__init__(coordinator)
+        self._account_key = account_key
+        self._attr_device_info = _device_info(entry_id)
+        self._platform = platform
+
+    def _account_data(self) -> dict:
+        return (self.coordinator.data or {}).get("accounts", {}).get(self._account_key, {})
+
+
+class AccountPlayingSensor(_AccountBaseSensor):
+
+    def __init__(self, coordinator, entry_id: str, account_key: str, name: str, platform: str) -> None:
+        super().__init__(coordinator, entry_id, account_key, name, platform)
+        icon = "mdi:steam" if platform == "Steam" else "mdi:microsoft-xbox"
+        self._attr_icon = icon
+        self._attr_name = f"{name} Playing"
+        self._attr_unique_id = f"gaming_hub_{account_key}_playing"
+
+    @property
+    def native_value(self) -> str | None:
+        return self._account_data().get("playing")
+
+
+class SteamHoursRecentSensor(_AccountBaseSensor):
+    _attr_icon = "mdi:clock-outline"
+    _attr_state_class = SensorStateClass.TOTAL
+    _attr_native_unit_of_measurement = "h"
+
+    def __init__(self, coordinator, entry_id: str, account_key: str, name: str) -> None:
+        super().__init__(coordinator, entry_id, account_key, name, "Steam")
+        self._attr_name = f"{name} Hours (2 weeks)"
+        self._attr_unique_id = f"gaming_hub_{account_key}_hours_recent"
+
+    @property
+    def native_value(self) -> float | None:
+        return self._account_data().get("hours_recent")
