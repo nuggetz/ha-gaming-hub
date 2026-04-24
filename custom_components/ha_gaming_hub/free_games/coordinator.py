@@ -101,7 +101,13 @@ class FreeGamesCoordinator(GamingHubCoordinator):
         except Exception as err:
             _LOGGER.debug("Steam wishlistdata fetch failed: %s", err)
 
-        _LOGGER.debug("Steam wishlist: %d appids, %d titles", len(appids), len(titles))
+        _LOGGER.warning(
+            "Steam wishlist fetch complete — api_key present: %s, wishlist_id: %s, appids: %d, titles: %d",
+            bool(self._steam_api_key),
+            self._steam_wishlist_id,
+            len(appids),
+            len(titles),
+        )
         return appids, titles
 
     async def _async_update_data(self) -> dict:

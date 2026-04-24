@@ -10,9 +10,10 @@
       },
       "free_games": {
         "title": "Free Games — Configurazione",
-        "description": "Configura il modulo Free Games. Fonti: Epic Games Store e GamerPower. Nessuna chiave API richiesta.\n\nOpzionale: inserisci il tuo SteamID64 per contrassegnare con ⭐ i giochi gratuiti presenti nella tua wishlist Steam.",
+        "description": "Configura il modulo Free Games. Fonti: Epic Games Store e GamerPower. Nessuna chiave API richiesta.\n\nOpzionale: inserisci la tua chiave API Steam e il tuo SteamID64 per contrassegnare con ⭐ i giochi gratuiti presenti nella tua wishlist Steam.",
         "data": {
           "scan_interval_free_games": "Intervallo di aggiornamento (secondi)",
+          "steam_api_key": "Chiave API Steam (opzionale, per il badge wishlist)",
           "steam_wishlist_id": "Il tuo SteamID64 (opzionale, per il badge wishlist)"
         }
       },

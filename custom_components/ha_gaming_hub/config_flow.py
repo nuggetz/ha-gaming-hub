@@ -104,7 +104,12 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._data[SCAN_INTERVAL_FREE_GAMES_KEY] = user_input.get(
                 SCAN_INTERVAL_FREE_GAMES_KEY, DEFAULT_SCAN_INTERVAL_FREE_GAMES
             )
-            self._data[CONF_STEAM_WISHLIST_ID] = user_input.get(CONF_STEAM_WISHLIST_ID, "").strip()
+            wishlist_id = user_input.get(CONF_STEAM_WISHLIST_ID, "").strip()
+            api_key = user_input.get(CONF_STEAM_API_KEY, "").strip()
+            if wishlist_id:
+                self._data[CONF_STEAM_WISHLIST_ID] = wishlist_id
+            if api_key:
+                self._data[CONF_STEAM_API_KEY] = api_key
             if MODULE_PRICE_TRACKER in self._data[CONF_MODULES]:
                 return await self.async_step_price_tracker()
             if MODULE_PRESENCE in self._data[CONF_MODULES]:
@@ -112,6 +117,7 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return await self.async_step_summary()
 
         prefilled_wishlist_id = self._data.get(CONF_STEAM_WISHLIST_ID, "")
+        prefilled_api_key = self._data.get(CONF_STEAM_API_KEY, "")
         schema = vol.Schema(
             {
                 vol.Optional(
@@ -125,6 +131,9 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         unit_of_measurement="seconds",
                         mode=NumberSelectorMode.BOX,
                     )
+                ),
+                vol.Optional(CONF_STEAM_API_KEY, default=prefilled_api_key): TextSelector(
+                    TextSelectorConfig(type=TextSelectorType.PASSWORD)
                 ),
                 vol.Optional(CONF_STEAM_WISHLIST_ID, default=prefilled_wishlist_id): TextSelector(
                     TextSelectorConfig(type=TextSelectorType.TEXT)
