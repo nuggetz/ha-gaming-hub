@@ -256,13 +256,11 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 _LOGGER.warning("Xbox device code start failed: %s", err)
                 errors["base"] = "xbox_start_failed"
 
-        placeholders: dict[str, str] = {}
-        if self._xbox_device_code:
-            placeholders = {
-                "user_code": self._xbox_device_code.get("user_code", ""),
-                "verification_uri": self._xbox_device_code.get("verification_uri", "https://microsoft.com/devicelogin"),
-                "expires_in": str(self._xbox_device_code.get("expires_in", 900)),
-            }
+        placeholders: dict[str, str] = {
+            "user_code": self._xbox_device_code.get("user_code", "—") if self._xbox_device_code else "—",
+            "verification_uri": self._xbox_device_code.get("verification_uri", "https://microsoft.com/devicelogin") if self._xbox_device_code else "https://microsoft.com/devicelogin",
+            "expires_in": str(self._xbox_device_code.get("expires_in", 900)) if self._xbox_device_code else "—",
+        }
 
         return self.async_show_form(
             step_id=STEP_XBOX,
