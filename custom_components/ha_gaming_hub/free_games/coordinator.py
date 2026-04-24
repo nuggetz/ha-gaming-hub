@@ -7,7 +7,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from ..coordinator import GamingHubCoordinator
-from ..const import DEFAULT_SCAN_INTERVAL_FREE_GAMES
+from ..const import DEFAULT_SCAN_INTERVAL_FREE_GAMES, STEAM_API_URL
 
 from .epic import EpicClient
 from .gamerpower import GamerPowerClient
@@ -49,6 +49,7 @@ class FreeGamesCoordinator(GamingHubCoordinator):
         session,
         scan_interval: int = DEFAULT_SCAN_INTERVAL_FREE_GAMES,
         steam_wishlist_id: str | None = None,
+        steam_api_key: str | None = None,
     ):
         super().__init__(
             hass,
@@ -59,25 +60,48 @@ class FreeGamesCoordinator(GamingHubCoordinator):
         self.epic_client = EpicClient(session)
         self.gamerpower_client = GamerPowerClient(session)
         self._steam_wishlist_id = steam_wishlist_id
+        self._steam_api_key = steam_api_key
 
     async def _async_fetch_wishlist(self) -> tuple[set[str], set[str]]:
         """Return (appid_set, normalized_title_set) from the Steam wishlist."""
         if not self._steam_wishlist_id:
             return set(), set()
-        url = f"https://store.steampowered.com/wishlist/profiles/{self._steam_wishlist_id}/wishlistdata/"
+
+        appids: set[str] = set()
+        titles: set[str] = set()
+
+        # Primary: official API — reliable regardless of profile privacy settings
+        if self._steam_api_key:
+            try:
+                url = f"{STEAM_API_URL}/IWishlistService/GetWishlist/v1/"
+                params = {"key": self._steam_api_key, "steamid": self._steam_wishlist_id}
+                async with self.session.get(url, params=params) as resp:
+                    if resp.status == 200:
+                        data = await resp.json(content_type=None)
+                        items = data.get("response", {}).get("items", [])
+                        appids = {str(item["appid"]) for item in items if "appid" in item}
+            except Exception as err:
+                _LOGGER.warning("Steam API wishlist fetch failed: %s", err)
+
+        # Secondary: web endpoint — gives game names for title-based matching
         try:
+            url = f"https://store.steampowered.com/wishlist/profiles/{self._steam_wishlist_id}/wishlistdata/"
             async with self.session.get(url) as resp:
-                if resp.status != 200:
-                    _LOGGER.debug("Steam wishlist returned HTTP %s", resp.status)
-                    return set(), set()
-                data = await resp.json(content_type=None)
+                if resp.status == 200:
+                    data = await resp.json(content_type=None)
+                    # Steam returns {"success": 2} on error — skip non-game keys
+                    if isinstance(data, dict) and "success" not in data and data:
+                        if not appids:
+                            appids = set(data.keys())
+                        titles = {
+                            _normalize_title(v["name"])
+                            for v in data.values()
+                            if isinstance(v, dict) and v.get("name")
+                        }
         except Exception as err:
-            _LOGGER.warning("Steam wishlist fetch failed: %s", err)
-            return set(), set()
-        if not isinstance(data, dict):
-            return set(), set()
-        appids = set(data.keys())
-        titles = {_normalize_title(v["name"]) for v in data.values() if isinstance(v, dict) and v.get("name")}
+            _LOGGER.debug("Steam wishlistdata fetch failed: %s", err)
+
+        _LOGGER.debug("Steam wishlist: %d appids, %d titles", len(appids), len(titles))
         return appids, titles
 
     async def _async_update_data(self) -> dict:
