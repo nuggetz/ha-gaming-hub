@@ -11,7 +11,7 @@ from xbox.webapi.common.signed_session import SignedSession
 
 _LOGGER = logging.getLogger(__name__)
 
-XBOX_CLIENT_ID = "388ea51c-0b25-4029-aae2-17df49d23905"
+XBOX_CLIENT_ID = "000000004C12AE6F"
 XBOX_TOKEN_STORAGE_KEY = "ha_gaming_hub_xbox_tokens"
 XBOX_TOKEN_STORAGE_VERSION = 1
 
