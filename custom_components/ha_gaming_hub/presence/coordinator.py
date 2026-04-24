@@ -5,7 +5,6 @@ from homeassistant.core import HomeAssistant
 
 from ..coordinator import GamingHubCoordinator
 from .steam import SteamClient
-from .xbox import XboxClient
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -20,7 +19,6 @@ class PresenceCoordinator(GamingHubCoordinator):
         steam_api_key: str,
         steam_ids: list[str],
         xbox_accounts: list[dict],
-        xbox_client_id: str = "",
     ) -> None:
         super().__init__(
             hass,
@@ -34,29 +32,13 @@ class PresenceCoordinator(GamingHubCoordinator):
         self._steam: SteamClient | None = (
             SteamClient(session, steam_api_key) if steam_api_key and steam_ids else None
         )
-        self._xbox_clients: list[XboxClient] = [
-            XboxClient(hass, acc["xuid"], xbox_client_id) for acc in xbox_accounts if acc.get("xuid")
-        ]
-
-    async def async_config_entry_first_refresh(self) -> None:
-        for client in self._xbox_clients:
-            ok = await client.async_init()
-            if not ok:
-                _LOGGER.warning(
-                    "Xbox client for xuid %s could not load tokens", client._xuid
-                )
-        await super().async_config_entry_first_refresh()
 
     async def _async_update_data(self) -> dict:
         async def _noop() -> dict:
             return {}
 
         steam_coro = self._fetch_steam() if (self._steam and self.steam_ids) else _noop()
-        xbox_tasks = [client.get_presence() for client in self._xbox_clients]
-
-        results = await asyncio.gather(steam_coro, *xbox_tasks, return_exceptions=True)
-        steam_result = results[0]
-        xbox_results = results[1:]
+        steam_result, *_ = await asyncio.gather(steam_coro, return_exceptions=True)
 
         accounts: dict[str, dict] = {}
 
@@ -66,16 +48,26 @@ class PresenceCoordinator(GamingHubCoordinator):
         elif isinstance(steam_result, Exception):
             _LOGGER.warning("Steam presence fetch failed: %s", steam_result)
 
-        for client, result in zip(self._xbox_clients, xbox_results):
-            if isinstance(result, dict):
-                accounts[f"xbox_{client._xuid}"] = {"platform": "Xbox", **result}
-            else:
-                _LOGGER.warning("Xbox presence fetch failed for %s: %s", client._xuid, result)
+        for account in self.xbox_accounts:
+            slug = account.get("gamertag", "")
+            if not slug:
+                continue
+            online_state = self.hass.states.get(f"binary_sensor.xbox_{slug}_online")
+            playing_state = self.hass.states.get(f"sensor.xbox_{slug}_now_playing")
 
-        someone_is_gaming = any(
-            bool(acc.get("playing")) for acc in accounts.values()
-        )
+            online = online_state is not None and online_state.state == "on"
+            playing: str | None = None
+            if playing_state and playing_state.state not in ("", "unknown", "unavailable", "None", "none"):
+                playing = playing_state.state
 
+            accounts[f"xbox_{slug}"] = {
+                "platform": "Xbox",
+                "gamertag": slug,
+                "online": online,
+                "playing": playing,
+            }
+
+        someone_is_gaming = any(bool(acc.get("playing")) for acc in accounts.values())
         return {"accounts": accounts, "someone_is_gaming": someone_is_gaming}
 
     async def _fetch_steam(self) -> dict:

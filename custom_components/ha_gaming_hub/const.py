@@ -16,7 +16,6 @@ CONF_ITAD_API_KEY = "itad_api_key"
 CONF_STEAM_API_KEY = "steam_api_key"
 CONF_STEAM_IDS = "steam_ids"
 CONF_XBOX_ACCOUNTS = "xbox_accounts"
-CONF_XBOX_CLIENT_ID = "xbox_client_id"
 
 # Default polling intervals (seconds)
 DEFAULT_SCAN_INTERVAL_FREE_GAMES = 3600

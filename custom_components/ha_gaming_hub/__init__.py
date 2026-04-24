@@ -12,7 +12,6 @@ from .const import (
     CONF_STEAM_API_KEY,
     CONF_STEAM_IDS,
     CONF_XBOX_ACCOUNTS,
-    CONF_XBOX_CLIENT_ID,
     MODULE_FREE_GAMES,
     MODULE_PRICE_TRACKER,
     MODULE_PRESENCE,
@@ -54,8 +53,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         steam_api_key = entry.data.get(CONF_STEAM_API_KEY, "")
         steam_ids = entry.data.get(CONF_STEAM_IDS, [])
         xbox_accounts = entry.data.get(CONF_XBOX_ACCOUNTS, [])
-        xbox_client_id = entry.data.get(CONF_XBOX_CLIENT_ID, "")
-        coordinator = PresenceCoordinator(hass, session, scan_interval, steam_api_key, steam_ids, xbox_accounts, xbox_client_id)
+        coordinator = PresenceCoordinator(hass, session, scan_interval, steam_api_key, steam_ids, xbox_accounts)
         await coordinator.async_config_entry_first_refresh()
         coordinators[MODULE_PRESENCE] = coordinator
 

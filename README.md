@@ -226,38 +226,23 @@ You can track multiple accounts: enter one ID or Vanity URL per line in the **St
 
 ### Xbox setup
 
-Xbox authentication requires a **free personal Azure AD app**. This is a one-time setup (~5 minutes). Microsoft restricts shared client IDs, so each installation needs its own.
+Xbox support works by reading data from the **official Home Assistant Xbox integration**, which handles all authentication through Nabu Casa. No Azure account or API key registration is required on your side.
 
-#### Step 1 — Register an Azure AD app
+#### Step 1 — Install and configure the native Xbox integration
 
-1. Go to [https://portal.azure.com](https://portal.azure.com) and sign in with **the same Microsoft account you use for Xbox**
-2. In the search bar type **App registrations** and select it
-3. Click **New registration**
-4. Fill in:
-   - **Name**: anything you like (e.g. `HA Gaming Hub`)
-   - **Supported account types**: select **Personal Microsoft accounts only**
-   - Leave Redirect URI blank
-5. Click **Register**
-6. You are now on the app overview page — copy the **Application (client) ID** (a UUID like `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`)
-7. Go to the **Authentication** tab (left sidebar)
-8. Scroll to **Advanced settings** → set **Allow public client flows** to **Yes**
-9. Click **Save**
+1. Go to **Settings → Integrations → Add Integration** and search for **Xbox**
+2. Follow the standard HA Xbox setup flow (requires a Nabu Casa account or an externally accessible HA instance for the OAuth redirect)
+3. Once configured, the Xbox integration creates entities like `binary_sensor.xbox_<gamertag>_online` and `sensor.xbox_<gamertag>_now_playing`
 
-#### Step 2 — Configure in HA
+#### Step 2 — Link in HA Gaming Hub
 
-During setup, paste the Application (client) ID in the **Xbox App Registration** step.
+During the HA Gaming Hub setup (Presence module), after the Steam step:
 
-The integration will then use Microsoft's **Device Code Flow** — no password is stored in Home Assistant:
+- If the native Xbox integration is found, a step appears listing all detected Xbox accounts
+- Select which accounts to include in the Presence tracking
+- If the Xbox integration is not installed, this step is skipped automatically — you can always reconfigure later
 
-1. A short code and a URL (`https://microsoft.com/devicelogin`) are displayed
-2. Open that URL in any browser, sign in with your Microsoft/Xbox account, and enter the code
-3. Return to HA and click **Submit** — the integration verifies authorization
-4. If not yet approved, you will see a "pending" message — wait a few seconds and click Submit again
-5. Once authorized, your gamertag and tokens are saved securely in HA storage
-
-If you want to skip Xbox for now, check **Skip Xbox setup** and submit. You can reconfigure the integration later to add it.
-
-> **Security note:** tokens are stored in HA's internal storage (not in `configuration.yaml`). They are refreshed automatically before each poll.
+> **Note:** HA Gaming Hub does not store any Xbox credentials or tokens. All auth is handled entirely by the official Xbox integration.
 
 ### Presence entities
 
