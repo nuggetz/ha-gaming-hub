@@ -1,6 +1,6 @@
 # HA Gaming Hub
 
-![HA Gaming Hub logo](docs/ha_gaming_hub_logo.svg)
+![HA Gaming Hub](docs/header.png)
 
 A HACS custom integration for Home Assistant that brings gaming data into your smart home.
 

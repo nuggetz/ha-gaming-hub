@@ -260,18 +260,31 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._data[CONF_XBOX_ACCOUNTS] = [{"gamertag": s} for s in selected]
             return await self.async_step_summary()
 
+        # Find all config entries belonging to the native Xbox integration
+        xbox_entry_ids = {
+            entry.entry_id
+            for entry in self.hass.config_entries.async_entries()
+            if entry.domain == "xbox"
+        }
+
         ent_reg = er.async_get(self.hass)
         xbox_slugs = []
         for entity in ent_reg.entities.values():
             if (
                 entity.domain == "binary_sensor"
-                and entity.entity_id.startswith("binary_sensor.xbox_")
+                and entity.config_entry_id in xbox_entry_ids
                 and entity.entity_id.endswith("_online")
             ):
-                # entity_id: binary_sensor.xbox_{gamertag_slug}_online
-                stripped = entity.entity_id.removeprefix("binary_sensor.xbox_").removesuffix("_online")
+                # entity_id: binary_sensor.{gamertag_slug}_online
+                stripped = entity.entity_id.removeprefix("binary_sensor.").removesuffix("_online")
                 if stripped:
                     xbox_slugs.append(stripped)
+
+        _LOGGER.debug(
+            "Xbox config entries: %s | detected slugs: %s",
+            [e.entry_id for e in self.hass.config_entries.async_entries() if e.domain == "xbox"],
+            xbox_slugs,
+        )
 
         # Auto-skip if the native Xbox integration is not installed
         if not xbox_slugs:
