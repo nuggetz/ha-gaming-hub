@@ -163,6 +163,7 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return await self.async_step_summary()
 
         prefilled_wishlist_id = self._data.get(CONF_STEAM_WISHLIST_ID, "")
+        prefilled_api_key = self._data.get(CONF_STEAM_API_KEY, "")
         schema = vol.Schema(
             {
                 vol.Optional(CONF_ITAD_API_KEY, default=""): TextSelector(
@@ -180,7 +181,7 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         mode=NumberSelectorMode.BOX,
                     )
                 ),
-                vol.Optional(CONF_STEAM_API_KEY, default=""): TextSelector(
+                vol.Optional(CONF_STEAM_API_KEY, default=prefilled_api_key): TextSelector(
                     TextSelectorConfig(type=TextSelectorType.PASSWORD)
                 ),
                 vol.Optional(CONF_STEAM_WISHLIST_ID, default=prefilled_wishlist_id): TextSelector(

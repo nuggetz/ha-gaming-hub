@@ -53,6 +53,11 @@ async def async_setup_entry(
 
         coordinator.register_sensor_callbacks(on_game_added, on_game_removed)
 
+    fg_coord = coordinators.get(MODULE_FREE_GAMES)
+    pt_coord = coordinators.get(MODULE_PRICE_TRACKER)
+    if fg_coord or pt_coord:
+        entities.append(GamingHubDealsSensor(entry.entry_id, fg_coord, pt_coord))
+
     if MODULE_PRESENCE in coordinators:
         coordinator = coordinators[MODULE_PRESENCE]
         for account_key, acc in (coordinator.data or {}).get("accounts", {}).items():
@@ -155,7 +160,7 @@ class FreeGamesValueSensor(CoordinatorEntity, SensorEntity):
     _attr_icon = "mdi:cash"
     _attr_device_class = SensorDeviceClass.MONETARY
     _attr_native_unit_of_measurement = "USD"
-    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_state_class = SensorStateClass.TOTAL
 
     def __init__(self, coordinator, entry_id: str) -> None:
         super().__init__(coordinator)
@@ -280,6 +285,92 @@ class PriceTrackerDealsSensor(CoordinatorEntity, SensorEntity):
             })
 
         return {"on_sale": on_sale_entries}
+
+
+# ---------------------------------------------------------------------------
+# Unified deals sensor (free games + price tracker watchlist)
+# ---------------------------------------------------------------------------
+
+class GamingHubDealsSensor(SensorEntity):
+    """Single sensor combining Epic/GamerPower free games and ITAD watchlist deals.
+
+    State = total item count. on_sale attribute = Nintendo Wishlist Card format.
+    ⭐ prefix on sale_price when the game is in the user's Steam wishlist.
+    """
+
+    _attr_has_entity_name = True
+    _attr_name = "Gaming Hub Deals"
+    _attr_unique_id = "gaming_hub_deals"
+    _attr_icon = "mdi:tag-multiple-outline"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, entry_id: str, fg_coordinator=None, pt_coordinator=None) -> None:
+        self._attr_device_info = _device_info(entry_id)
+        self._fg = fg_coordinator
+        self._pt = pt_coordinator
+        self._unsubs: list = []
+
+    async def async_added_to_hass(self) -> None:
+        for coord in (self._fg, self._pt):
+            if coord is not None:
+                self._unsubs.append(coord.async_add_listener(self.async_write_ha_state))
+
+    async def async_will_remove_from_hass(self) -> None:
+        for unsub in self._unsubs:
+            unsub()
+
+    def _build_entries(self) -> list[dict]:
+        entries: list[dict] = []
+
+        # Free games (Epic + GamerPower, 100% free)
+        if self._fg and self._fg.data:
+            for g in self._fg.data.get("current", []):
+                in_wishlist = g.get("in_steam_wishlist", False)
+                badge = "⭐ " if in_wishlist else ""
+                store = g.get("store") or g.get("platform", "")
+                worth = g.get("worth")
+                cover = g.get("cover", "")
+                entries.append({
+                    "title": g.get("title", ""),
+                    "box_art_url": cover,
+                    "backgroundart": cover,
+                    "sale_price": f"{badge}Free · {store}" if store else f"{badge}Free",
+                    "normal_price": f"${worth:.2f}" if worth else "",
+                    "percent_off": 100,
+                })
+
+        # Price tracker watchlist (ITAD / CheapShark)
+        if self._pt and self._pt.data:
+            for data in sorted(
+                self._pt.data.values(),
+                key=lambda d: d.get("title", ""),
+            ):
+                best_price = data.get("best_price")
+                retail_price = data.get("retail_price")
+                best_store = data.get("best_store", "")
+                in_wishlist = data.get("in_steam_wishlist", False)
+                discount = data.get("discount_pct", 0.0)
+                thumb = data.get("thumb") or ""
+                badge = "⭐ " if in_wishlist else ""
+                price_str = f"${best_price:.2f}" if best_price is not None else "N/A"
+                entries.append({
+                    "title": data.get("title", ""),
+                    "box_art_url": thumb,
+                    "backgroundart": thumb,
+                    "sale_price": f"{badge}{price_str} · {best_store}",
+                    "normal_price": f"${retail_price:.2f}" if retail_price else "",
+                    "percent_off": int(discount),
+                })
+
+        return entries
+
+    @property
+    def native_value(self) -> int:
+        return len(self._build_entries())
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        return {"on_sale": self._build_entries()}
 
 
 # ---------------------------------------------------------------------------
