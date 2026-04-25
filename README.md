@@ -5,7 +5,7 @@
 A HACS custom integration for Home Assistant that brings gaming data into your smart home.
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
-[![License: MIT](https://img.shields.io/github/license/nuggetz/ha-gaming-hub)](https://github.com/nuggetz/ha-gaming-hub/LICENSE)
+[![License: MIT](https://img.shields.io/github/license/nuggetz/ha-gaming-hub)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/nuggetz/ha-gaming-hub?display_name=tag)](https://github.com/nuggetz/ha-gaming-hub/releases)
 [![Issues](https://img.shields.io/github/issues/nuggetz/ha-gaming-hub)](https://github.com/nuggetz/ha-gaming-hub/issues)
 [![Last commit](https://img.shields.io/github/last-commit/nuggetz/ha-gaming-hub)](https://github.com/nuggetz/ha-gaming-hub/commits/main)
