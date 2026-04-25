@@ -55,6 +55,7 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         self._data: dict[str, Any] = {}
+        self._is_reconfigure: bool = False
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -304,16 +305,30 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.FlowResult:
         """Re-run the full setup wizard to change any setting."""
-        self._data = dict(self.config_entry.data)
-        return await self.async_step_user()
+        if user_input is not None:
+            entry = self.hass.config_entries.async_get_entry(
+                self.context.get("entry_id", "")
+            )
+            if entry:
+                self._data = dict(entry.data)
+            self._is_reconfigure = True
+            return await self.async_step_user()
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=vol.Schema({}),
+        )
 
     async def async_step_summary(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.FlowResult:
         if user_input is not None:
-            if self.source == config_entries.SOURCE_RECONFIGURE:
+            if getattr(self, "_is_reconfigure", False):
+                entry = self.hass.config_entries.async_get_entry(
+                    self.context.get("entry_id", "")
+                )
                 return self.async_update_reload_and_abort(
-                    self.config_entry,
+                    entry,
                     data=self._data,
                 )
             await self.async_set_unique_id(DOMAIN)
