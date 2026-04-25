@@ -6,7 +6,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
 from ..coordinator import GamingHubCoordinator
-from ..const import DEFAULT_SCAN_INTERVAL_PRICE_TRACKER
+from ..const import DEFAULT_SCAN_INTERVAL_PRICE_TRACKER, EVENT_DEAL_FOUND, EVENT_HISTORICAL_LOW
 from . import STORAGE_KEY, STORAGE_VERSION, load_watchlist, add_game_to_watchlist, remove_game_from_watchlist, _slugify
 from .cheapshark import CheapSharkClient
 from .itad import ITADClient
@@ -41,6 +41,9 @@ class PriceTrackerCoordinator(GamingHubCoordinator):
         self._sensor_remove_cb: Callable | None = None
         self._binary_sensor_add_cb: Callable | None = None
         self._binary_sensor_remove_cb: Callable | None = None
+        self._prev_sale_state: dict[str, bool] = {}
+        self._prev_low_state: dict[str, bool] = {}
+        self._initial_refresh_done: bool = False
 
     def register_sensor_callbacks(
         self, on_add: Callable, on_remove: Callable
@@ -145,6 +148,28 @@ class PriceTrackerCoordinator(GamingHubCoordinator):
                 _LOGGER.warning("CheapShark fetch error for '%s': %s", game["title"], cs_result)
 
             result[slug] = entry
+
+        if self._initial_refresh_done:
+            for slug, entry in result.items():
+                if entry["on_sale"] and not self._prev_sale_state.get(slug, False):
+                    self.hass.bus.async_fire(EVENT_DEAL_FOUND, {
+                        "title": entry["title"],
+                        "best_price": entry["best_price"],
+                        "best_store": entry["best_store"],
+                        "discount_pct": entry["discount_pct"],
+                        "in_steam_wishlist": entry["in_steam_wishlist"],
+                    })
+                if entry["historical_low"] and not self._prev_low_state.get(slug, False):
+                    self.hass.bus.async_fire(EVENT_HISTORICAL_LOW, {
+                        "title": entry["title"],
+                        "best_price": entry["best_price"],
+                        "best_store": entry["best_store"],
+                        "in_steam_wishlist": entry["in_steam_wishlist"],
+                    })
+        else:
+            self._initial_refresh_done = True
+        self._prev_sale_state = {s: e["on_sale"] for s, e in result.items()}
+        self._prev_low_state = {s: e["historical_low"] for s, e in result.items()}
 
         return result
 

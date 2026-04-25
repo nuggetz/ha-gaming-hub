@@ -273,10 +273,9 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if (
                 entity.domain == "binary_sensor"
                 and entity.config_entry_id in xbox_entry_ids
-                and entity.entity_id.endswith("_online")
             ):
-                # entity_id: binary_sensor.{gamertag_slug}_online
-                stripped = entity.entity_id.removeprefix("binary_sensor.").removesuffix("_online")
+                # entity_id: binary_sensor.{gamertag_slug}
+                stripped = entity.entity_id.removeprefix("binary_sensor.")
                 if stripped:
                     xbox_slugs.append(stripped)
 

@@ -9,7 +9,7 @@ from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from ..coordinator import GamingHubCoordinator
-from ..const import DEFAULT_SCAN_INTERVAL_FREE_GAMES, STEAM_API_URL
+from ..const import DEFAULT_SCAN_INTERVAL_FREE_GAMES, STEAM_API_URL, EVENT_FREE_GAME_ADDED
 
 from .epic import EpicClient
 from .gamerpower import GamerPowerClient
@@ -76,6 +76,8 @@ class FreeGamesCoordinator(GamingHubCoordinator):
         self._wishlist_appids: set[str] = set()
         self._wishlist_titles: set[str] = set()
         self._wishlist_unsub: Callable | None = None
+        self._known_titles: set[str] = set()
+        self._initial_refresh_done: bool = False
 
     def _subscribe_steam_wishlist_sensor(self) -> None:
         """Subscribe to state changes of the steam_wishlist sensor.
@@ -242,6 +244,22 @@ class FreeGamesCoordinator(GamingHubCoordinator):
         total_value = sum(
             g["worth"] for g in current if g.get("worth") is not None
         )
+
+        current_titles = {g["title"] for g in current}
+        if self._initial_refresh_done:
+            for game in current:
+                if game["title"] not in self._known_titles:
+                    end_dt = game.get("end_date")
+                    self.hass.bus.async_fire(EVENT_FREE_GAME_ADDED, {
+                        "title": game["title"],
+                        "url": game.get("url", ""),
+                        "store": game.get("store") or game.get("platform", ""),
+                        "end_date": end_dt.isoformat() if end_dt else None,
+                        "in_steam_wishlist": game.get("in_steam_wishlist", False),
+                    })
+        else:
+            self._initial_refresh_done = True
+        self._known_titles = current_titles
 
         return {
             "current": current,

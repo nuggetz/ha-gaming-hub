@@ -4,6 +4,7 @@ import logging
 from homeassistant.core import HomeAssistant
 
 from ..coordinator import GamingHubCoordinator
+from ..const import EVENT_FRIEND_ONLINE
 from .steam import SteamClient
 
 _LOGGER = logging.getLogger(__name__)
@@ -32,6 +33,8 @@ class PresenceCoordinator(GamingHubCoordinator):
         self._steam: SteamClient | None = (
             SteamClient(session, steam_api_key) if steam_api_key and steam_ids else None
         )
+        self._prev_online: dict[str, bool] = {}
+        self._initial_refresh_done: bool = False
 
     async def _async_update_data(self) -> dict:
         async def _noop() -> dict:
@@ -52,13 +55,32 @@ class PresenceCoordinator(GamingHubCoordinator):
             slug = account.get("gamertag", "")
             if not slug:
                 continue
-            online_state = self.hass.states.get(f"binary_sensor.xbox_{slug}_online")
-            playing_state = self.hass.states.get(f"sensor.xbox_{slug}_now_playing")
+
+            # Native Xbox integration entity: binary_sensor.{gamertag_slug}
+            online_state = self.hass.states.get(f"binary_sensor.{slug}")
 
             online = online_state is not None and online_state.state == "on"
+
+            # Try to get current game from binary_sensor attributes first,
+            # then fall back to a separate now_playing sensor if it exists.
             playing: str | None = None
-            if playing_state and playing_state.state not in ("", "unknown", "unavailable", "None", "none"):
-                playing = playing_state.state
+            if online_state:
+                attrs = online_state.attributes
+                playing = (
+                    attrs.get("media_title")
+                    or attrs.get("current_game")
+                    or attrs.get("game")
+                )
+            if not playing:
+                for candidate in (
+                    f"sensor.{slug}_now_playing",
+                    f"sensor.{slug}_game",
+                    f"media_player.{slug}",
+                ):
+                    state = self.hass.states.get(candidate)
+                    if state and state.state not in ("", "unknown", "unavailable", "None", "none", "idle", "off"):
+                        playing = state.state
+                        break
 
             accounts[f"xbox_{slug}"] = {
                 "platform": "Xbox",
@@ -66,6 +88,18 @@ class PresenceCoordinator(GamingHubCoordinator):
                 "online": online,
                 "playing": playing,
             }
+
+        if self._initial_refresh_done:
+            for key, acc in accounts.items():
+                if acc.get("online") and not self._prev_online.get(key, False):
+                    self.hass.bus.async_fire(EVENT_FRIEND_ONLINE, {
+                        "platform": acc.get("platform", ""),
+                        "name": acc.get("name") or acc.get("gamertag") or key,
+                        "playing": acc.get("playing"),
+                    })
+        else:
+            self._initial_refresh_done = True
+        self._prev_online = {key: bool(acc.get("online")) for key, acc in accounts.items()}
 
         someone_is_gaming = any(bool(acc.get("playing")) for acc in accounts.values())
         return {"accounts": accounts, "someone_is_gaming": someone_is_gaming}

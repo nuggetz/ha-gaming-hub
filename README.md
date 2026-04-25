@@ -307,7 +307,7 @@ Xbox support reads data from the **official Home Assistant Xbox integration** �
 
 1. **Settings → Integrations → Add Integration → Xbox**
 2. Complete the OAuth flow (requires Nabu Casa or externally accessible HA)
-3. The integration creates `binary_sensor.xbox_<gamertag>_online` entities automatically
+3. The integration creates `binary_sensor.<gamertag>` entities automatically (e.g. `binary_sensor.vesta92`)
 
 #### Step 2 — Link in HA Gaming Hub
 
@@ -328,8 +328,8 @@ During Presence setup, after the Steam step, detected Xbox accounts are listed f
 
 | Entity | Type | Description |
 | ------ | ---- | ----------- |
-| `binary_sensor.gaming_hub_xbox_<xuid>_online` | Binary Sensor | `on` when active on Xbox Live |
-| `sensor.gaming_hub_xbox_<xuid>_playing` | Sensor | Current game or activity, or `—` if idle |
+| `binary_sensor.gaming_hub_<gamertag>_online` | Binary Sensor | `on` when active on Xbox Live |
+| `sensor.gaming_hub_<gamertag>_playing` | Sensor | Current game or activity, or `—` if idle |
 
 #### Aggregate
 
@@ -368,6 +368,105 @@ action:
 
 ---
 
+## Events & Automations
+
+The integration fires HA events whenever something notable changes. Use them as automation triggers — no polling needed.
+
+| Event | When fired | Key data |
+| ----- | ---------- | -------- |
+| `ha_gaming_hub_free_game_added` | A new free game appears | `title`, `store`, `end_date`, `url`, `in_steam_wishlist` |
+| `ha_gaming_hub_deal_found` | A tracked game goes on sale | `title`, `best_price`, `best_store`, `discount_pct`, `in_steam_wishlist` |
+| `ha_gaming_hub_historical_low` | A tracked game hits its all-time low price | `title`, `best_price`, `best_store`, `in_steam_wishlist` |
+| `ha_gaming_hub_friend_online` | A Steam or Xbox friend comes online | `platform`, `name`, `playing` |
+
+Events are **not** fired on the first HA startup — only on subsequent changes.
+
+### Example: notify on new wishlist deal
+
+```yaml
+alias: Notify wishlist game on sale
+trigger:
+  - platform: event
+    event_type: ha_gaming_hub_deal_found
+    event_data:
+      in_steam_wishlist: true
+action:
+  - service: notify.mobile_app_your_phone
+    data:
+      title: "⭐ Wishlist deal!"
+      message: >
+        {{ trigger.event.data.title }} is
+        {{ trigger.event.data.discount_pct }}% off on
+        {{ trigger.event.data.best_store }}
+        (${{ trigger.event.data.best_price }})
+```
+
+### Example: notify on all-time low
+
+```yaml
+alias: Notify historical low
+trigger:
+  - platform: event
+    event_type: ha_gaming_hub_historical_low
+action:
+  - service: notify.mobile_app_your_phone
+    data:
+      title: "📉 All-time low!"
+      message: >
+        {{ trigger.event.data.title }} is at its all-time low:
+        ${{ trigger.event.data.best_price }}
+        on {{ trigger.event.data.best_store }}
+```
+
+### Example: notify when a friend comes online
+
+```yaml
+alias: Friend online
+trigger:
+  - platform: event
+    event_type: ha_gaming_hub_friend_online
+action:
+  - service: notify.mobile_app_your_phone
+    data:
+      title: "🎮 {{ trigger.event.data.name }} is online"
+      message: >
+        {% if trigger.event.data.playing %}
+        Playing: {{ trigger.event.data.playing }}
+        {% else %}
+        Online on {{ trigger.event.data.platform }}
+        {% endif %}
+```
+
+---
+
+## Helper Sensors
+
+| Entity | Description |
+| ------ | ----------- |
+| `sensor.gaming_hub_next_expiry` | Timestamp of the next free game expiry. Use with `device_class: timestamp` — HA displays it as "in X hours". Attributes: `title`, `store`, `url` of the soonest-expiring game. |
+| `sensor.gaming_hub_wishlist_deals` | Count of Price Tracker games that are **both** in your Steam wishlist and currently on sale. The `on_sale` attribute lists them in Nintendo Wishlist Card format. |
+
+### Dashboard card — wishlist deals only
+
+```yaml
+type: custom:nintendo-wishlist-card
+entity: sensor.gaming_hub_wishlist_deals
+title: Wishlist On Sale
+```
+
+---
+
+## Automation Blueprints
+
+> **Coming soon.** Importable blueprints for the most common use cases:
+>
+> - **New free game alert** — notify when a new game is available for free
+> - **Wishlist deal alert** — notify when a wishlisted game goes on sale
+> - **Historical low alert** — notify when a tracked game hits its all-time low
+> - **Friend online** — trigger a scene or notify when a friend comes online on Steam or Xbox
+
+---
+
 ## Development Status
 
 | Milestone | Description | Status |
@@ -376,4 +475,4 @@ action:
 | 1 | Free Games module | ✅ Done |
 | 2 | Price Tracker module | ✅ Done |
 | 3 | Presence module (Steam + Xbox) | ✅ Done |
-| 4 | Notifications & automations helpers | ⏳ Pending |
+| 4 | Events, helper sensors & automation blueprints | 🔄 In progress |

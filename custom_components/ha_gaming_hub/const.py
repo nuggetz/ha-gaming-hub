@@ -32,3 +32,9 @@ STEAM_API_URL = "https://api.steampowered.com"
 
 # Entity name prefixes
 ENTITY_PREFIX = "gaming_hub"
+
+# Events
+EVENT_FREE_GAME_ADDED = "ha_gaming_hub_free_game_added"
+EVENT_DEAL_FOUND = "ha_gaming_hub_deal_found"
+EVENT_HISTORICAL_LOW = "ha_gaming_hub_historical_low"
+EVENT_FRIEND_ONLINE = "ha_gaming_hub_friend_online"

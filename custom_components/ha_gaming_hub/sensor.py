@@ -1,4 +1,5 @@
 import logging
+from datetime import timezone
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
@@ -57,6 +58,10 @@ async def async_setup_entry(
     pt_coord = coordinators.get(MODULE_PRICE_TRACKER)
     if fg_coord or pt_coord:
         entities.append(GamingHubDealsSensor(entry.entry_id, fg_coord, pt_coord))
+    if fg_coord:
+        entities.append(FreeGamesNextExpirySensor(fg_coord, entry.entry_id))
+    if pt_coord:
+        entities.append(WishlistDealsSensor(pt_coord, entry.entry_id))
 
     if MODULE_PRESENCE in coordinators:
         coordinator = coordinators[MODULE_PRESENCE]
@@ -371,6 +376,84 @@ class GamingHubDealsSensor(SensorEntity):
     @property
     def extra_state_attributes(self) -> dict:
         return {"on_sale": self._build_entries()}
+
+
+# ---------------------------------------------------------------------------
+# Helper sensors (Milestone 4)
+# ---------------------------------------------------------------------------
+
+class FreeGamesNextExpirySensor(CoordinatorEntity, SensorEntity):
+    _attr_has_entity_name = True
+    _attr_name = "Next Free Game Expiry"
+    _attr_unique_id = "gaming_hub_next_expiry"
+    _attr_icon = "mdi:timer-sand"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+
+    def __init__(self, coordinator, entry_id: str) -> None:
+        super().__init__(coordinator)
+        self._attr_device_info = _device_info(entry_id)
+
+    @property
+    def native_value(self):
+        games = self.coordinator.data.get("current", []) if self.coordinator.data else []
+        upcoming = [g["end_date"] for g in games if g.get("end_date")]
+        if not upcoming:
+            return None
+        return min(upcoming)
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        games = self.coordinator.data.get("current", []) if self.coordinator.data else []
+        soonest = None
+        for g in games:
+            if g.get("end_date"):
+                if soonest is None or g["end_date"] < soonest["end_date"]:
+                    soonest = g
+        if not soonest:
+            return {}
+        return {
+            "title": soonest.get("title", ""),
+            "store": soonest.get("store") or soonest.get("platform", ""),
+            "url": soonest.get("url", ""),
+        }
+
+
+class WishlistDealsSensor(CoordinatorEntity, SensorEntity):
+    _attr_has_entity_name = True
+    _attr_name = "Wishlist Games On Sale"
+    _attr_unique_id = "gaming_hub_wishlist_deals"
+    _attr_icon = "mdi:star-circle"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator, entry_id: str) -> None:
+        super().__init__(coordinator)
+        self._attr_device_info = _device_info(entry_id)
+
+    @property
+    def native_value(self) -> int:
+        return sum(
+            1
+            for v in (self.coordinator.data or {}).values()
+            if v.get("in_steam_wishlist") and v.get("on_sale")
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        entries = []
+        for data in (self.coordinator.data or {}).values():
+            if not (data.get("in_steam_wishlist") and data.get("on_sale")):
+                continue
+            best_price = data.get("best_price")
+            retail_price = data.get("retail_price")
+            best_store = data.get("best_store", "")
+            entries.append({
+                "title": data.get("title", ""),
+                "sale_price": f"⭐ ${best_price:.2f} · {best_store}" if best_price is not None else "⭐ N/A",
+                "normal_price": f"${retail_price:.2f}" if retail_price else "",
+                "percent_off": int(data.get("discount_pct", 0)),
+                "historical_low": data.get("historical_low", False),
+            })
+        return {"on_sale": entries}
 
 
 # ---------------------------------------------------------------------------
