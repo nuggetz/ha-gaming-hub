@@ -301,10 +301,22 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             }),
         )
 
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        """Re-run the full setup wizard to change any setting."""
+        self._data = dict(self.config_entry.data)
+        return await self.async_step_user()
+
     async def async_step_summary(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.FlowResult:
         if user_input is not None:
+            if self.source == config_entries.SOURCE_RECONFIGURE:
+                return self.async_update_reload_and_abort(
+                    self.config_entry,
+                    data=self._data,
+                )
             await self.async_set_unique_id(DOMAIN)
             self._abort_if_unique_id_configured()
             return self.async_create_entry(title="HA Gaming Hub", data=self._data)

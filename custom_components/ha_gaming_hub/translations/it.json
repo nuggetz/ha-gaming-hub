@@ -46,6 +46,11 @@
         "title": "Riepilogo configurazione",
         "description": "Moduli: {modules}\nChiave IsThereAnyDeal: {itad_key}\nChiave Steam: {steam_key}\nSteamID64 Wishlist: {steam_wishlist_id}\nAccount Xbox: {xbox_accounts}\n\nClicca Invia per salvare.",
         "data": {}
+      },
+      "reconfigure": {
+        "title": "Riconfigura HA Gaming Hub",
+        "description": "Il wizard riparte dalla selezione dei moduli. I valori attuali sono precompilati.",
+        "data": {}
       }
     },
     "error": {

@@ -34,6 +34,8 @@ You can enable any combination of modules during setup. Each module is independe
 6. Go to **Settings → Integrations → Add Integration** and search for **HA Gaming Hub**.
 7. Follow the setup wizard to select and configure your modules.
 
+> **Tip:** you can change any setting (modules, API keys, Steam IDs, Xbox accounts) at any time via **Settings → Integrations → HA Gaming Hub → ⋮ → Reconfigure**.
+
 ### Setup screenshots
 
 | Module selection | Free Games config | Presence / Steam config |

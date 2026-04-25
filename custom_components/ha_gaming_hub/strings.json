@@ -46,6 +46,11 @@
         "title": "Configuration Summary",
         "description": "Modules: {modules}\nIsThereAnyDeal key: {itad_key}\nSteam key: {steam_key}\nSteam Wishlist ID: {steam_wishlist_id}\nXbox accounts: {xbox_accounts}\n\nClick Submit to save.",
         "data": {}
+      },
+      "reconfigure": {
+        "title": "Reconfigure HA Gaming Hub",
+        "description": "The wizard will restart from the module selection step. All current values are pre-filled.",
+        "data": {}
       }
     },
     "error": {
