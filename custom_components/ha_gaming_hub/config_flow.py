@@ -317,6 +317,7 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="reconfigure",
             data_schema=vol.Schema({}),
+            description_placeholders={},
         )
 
     async def async_step_summary(

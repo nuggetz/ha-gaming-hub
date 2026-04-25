@@ -49,7 +49,7 @@
       },
       "reconfigure": {
         "title": "Reconfigure HA Gaming Hub",
-        "description": "You are about to reconfigure HA Gaming Hub. The setup wizard will restart from the beginning — all your current values (modules, API keys, Steam ID, Xbox accounts) are pre-filled so you can change only what you need.\n\nClick Submit to continue.",
+        "description": "The wizard will restart from the module selection step. All current values are pre-filled.",
         "data": {}
       }
     },
