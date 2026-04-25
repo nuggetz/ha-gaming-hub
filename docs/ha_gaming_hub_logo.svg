@@ -1,0 +1,42 @@
+<svg width="512" height="512" viewBox="0 0 512 512" role="img" xmlns="http://www.w3.org/2000/svg">
+  <title>HA Gaming Hub</title>
+  <desc>Logo for the HA Gaming Hub Home Assistant custom component</desc>
+
+  <!-- Card background -->
+  <rect x="0" y="0" width="512" height="512" rx="0" fill="#1e2235"/>
+
+  <!-- Controller body -->
+  <rect x="168" y="172" width="176" height="110" rx="30" fill="#4f8ef7"/>
+  <!-- Left grip -->
+  <rect x="146" y="210" width="44" height="68" rx="22" fill="#3a6fd4"/>
+  <!-- Right grip -->
+  <rect x="322" y="210" width="44" height="68" rx="22" fill="#3a6fd4"/>
+
+  <!-- D-pad -->
+  <rect x="190" y="205" width="12" height="34" rx="4" fill="#1e2235" opacity="0.7"/>
+  <rect x="179" y="216" width="34" height="12" rx="4" fill="#1e2235" opacity="0.7"/>
+
+  <!-- ABXY buttons -->
+  <circle cx="336" cy="208" r="7" fill="#f7a14f"/>
+  <circle cx="351" cy="221" r="7" fill="#3dbcb8"/>
+  <circle cx="321" cy="221" r="7" fill="#e05c72"/>
+  <circle cx="336" cy="234" r="7" fill="#7be070"/>
+
+  <!-- Center HA button -->
+  <circle cx="256" cy="220" r="18" fill="#9b6ef7"/>
+  <text x="256" y="225" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" font-weight="600" fill="#f0f2f8">HA</text>
+
+  <!-- Analog sticks -->
+  <circle cx="228" cy="248" r="10" fill="#2a3050"/>
+  <circle cx="284" cy="248" r="10" fill="#2a3050"/>
+
+  <!-- Logo text -->
+  <text x="256" y="336" text-anchor="middle" font-family="system-ui, sans-serif" font-size="38" font-weight="500" fill="#f0f2f8">HA Gaming Hub</text>
+
+  <!-- Tagline -->
+  <text x="256" y="368" text-anchor="middle" font-family="system-ui, sans-serif" font-size="16" font-weight="400" fill="#8a90a8">presence · prices · free games</text>
+
+  <!-- Accent line -->
+  <rect x="216" y="388" width="80" height="3" rx="1.5" fill="#4f8ef7" opacity="0.5"/>
+  <rect x="241" y="388" width="30" height="3" rx="1.5" fill="#9b6ef7"/>
+</svg>

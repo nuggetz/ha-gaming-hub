@@ -264,8 +264,8 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         xbox_slugs = []
         for entity in ent_reg.entities.values():
             if (
-                entity.platform == "xbox"
-                and entity.domain == "binary_sensor"
+                entity.domain == "binary_sensor"
+                and entity.entity_id.startswith("binary_sensor.xbox_")
                 and entity.entity_id.endswith("_online")
             ):
                 # entity_id: binary_sensor.xbox_{gamertag_slug}_online
@@ -302,12 +302,17 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         steam_wishlist_id = self._data.get(CONF_STEAM_WISHLIST_ID, "")
         xbox_accounts = self._data.get(CONF_XBOX_ACCOUNTS, [])
 
+        if MODULE_PRESENCE in modules:
+            xbox_summary = ", ".join(a["gamertag"] for a in xbox_accounts) if xbox_accounts else "none"
+        else:
+            xbox_summary = "—"
+
         placeholders = {
             "modules": ", ".join(modules),
             "itad_key": ("***" + itad_key[-4:]) if len(itad_key) > 4 else ("*" * len(itad_key)) if itad_key else "not set",
             "steam_key": ("***" + steam_key[-4:]) if len(steam_key) > 4 else ("*" * len(steam_key)) if steam_key else "not set",
             "steam_wishlist_id": steam_wishlist_id if steam_wishlist_id else "not set",
-            "xbox_accounts": ", ".join(a["gamertag"] for a in xbox_accounts) if xbox_accounts else "none",
+            "xbox_accounts": xbox_summary,
         }
 
         return self.async_show_form(

@@ -1,5 +1,7 @@
 # HA Gaming Hub
 
+![HA Gaming Hub logo](docs/ha_gaming_hub_logo.svg)
+
 A HACS custom integration for Home Assistant that brings gaming data into your smart home.
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
@@ -31,6 +33,12 @@ You can enable any combination of modules during setup. Each module is independe
 5. Restart Home Assistant.
 6. Go to **Settings → Integrations → Add Integration** and search for **HA Gaming Hub**.
 7. Follow the setup wizard to select and configure your modules.
+
+### Setup screenshots
+
+| Module selection | Free Games config | Presence / Steam config |
+| ---------------- | ----------------- | ----------------------- |
+| ![Select modules](docs/select-modules.png) | ![Free Games config](docs/free-games-config.png) | ![Presence Steam config](docs/presence-steam-config.png) |
 
 ---
 
