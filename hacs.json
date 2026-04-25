@@ -1,5 +1,6 @@
 {
   "name": "HA Gaming Hub",
   "category": "integration",
-  "render_readme": true
+  "render_readme": true,
+  "homeassistant": "2023.5.0"
 }
