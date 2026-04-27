@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 _LOGGER = logging.getLogger(__name__)
@@ -5,17 +6,15 @@ _LOGGER = logging.getLogger(__name__)
 _MIN_SIMILARITY = 0.5
 
 
-async def search_hltb(title: str) -> dict | None:
-    """Search HowLongToBeat for a game title.
+def _sync_hltb_search(title: str):
+    from howlongtobeatpy import HowLongToBeat
+    return HowLongToBeat().search(title, similarity_case_sensitive=False)
 
-    Returns a dict with hours_main/extra/completionist, or None if no
-    good match is found. Uses the library's native async_search to avoid
-    blocking the event loop.
-    """
+
+async def search_hltb(title: str) -> dict | None:
     try:
-        from howlongtobeatpy import HowLongToBeat
-        results = await HowLongToBeat().async_search(
-            title, similarity_case_sensitive=False
+        results = await asyncio.get_running_loop().run_in_executor(
+            None, _sync_hltb_search, title
         )
     except ImportError:
         _LOGGER.warning("howlongtobeatpy not installed — cost_per_hour unavailable")
