@@ -123,9 +123,9 @@ class CheapSharkClient:
             "all_deals": [
                 {
                     "store": stores.get(str(d.get("storeID", "")), f"Store {d.get('storeID')}"),
-                    "price": float(d.get("salePrice", 0)),
-                    "retail_price": float(d.get("retailPrice", 0)),
-                    "savings": round(float(d.get("savings", "0")), 1),
+                    "price": float(d.get("salePrice") or 0),
+                    "retail_price": float(d.get("retailPrice") or 0),
+                    "savings": round(float(d.get("savings") or 0), 1),
                 }
                 for d in deals
             ],
