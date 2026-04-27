@@ -198,10 +198,12 @@ You can leave this field blank: the integration will use CheapShark-only data, w
 
 ### Managing your watchlist
 
-After setup, go to **Settings → Integrations → HA Gaming Hub → Configure**:
+**From the UI:** go to **Settings → Integrations → HA Gaming Hub → Configure**:
 
 - Type a game title in **Add game** and submit → a search step shows matching results, pick the correct one
 - Select a game in **Remove game** and submit → the game and all its entities are deleted immediately
+
+**From automations or scripts:** use the built-in services (see [Services](#services) below).
 
 ### Entities (per tracked game)
 
@@ -212,6 +214,8 @@ Entity IDs use a slugified version of the game title (e.g. `cyberpunk_2077`).
 | `sensor.gaming_hub_<slug>_best_price` | Sensor | Current lowest price across all stores (USD) |
 | `sensor.gaming_hub_<slug>_best_store` | Sensor | Store offering the best current price |
 | `sensor.gaming_hub_<slug>_discount` | Sensor | Current discount percentage (0–100) |
+| `sensor.gaming_hub_<slug>_score` | Sensor | Metacritic score (0–100). Requires ITAD API key. Attributes: `metacritic_url`, `opencritic_score`, `opencritic_url` |
+| `sensor.gaming_hub_<slug>_cost_per_hour` | Sensor | Current best price ÷ main story hours (USD/h). Attributes: `hours_main`, `hours_extra`, `hours_completionist` |
 | `binary_sensor.gaming_hub_<slug>_on_sale` | Binary Sensor | `on` when any store has a discount > 0% |
 | `binary_sensor.gaming_hub_<slug>_historical_low` | Binary Sensor | `on` when the current best price equals the all-time low |
 
@@ -272,6 +276,42 @@ action:
         Cyberpunk 2077 is at its all-time low:
         ${{ states('sensor.gaming_hub_cyberpunk_2077_best_price') }}
         on {{ states('sensor.gaming_hub_cyberpunk_2077_best_store') }}
+```
+
+---
+
+## Services
+
+HA Gaming Hub registers two services you can call from **Developer Tools → Services**, automations, or scripts.
+
+### `ha_gaming_hub.add_to_watchlist`
+
+Searches for a game by title and adds it to the Price Tracker watchlist automatically. Requires the Price Tracker module to be enabled.
+
+| Field | Required | Description |
+| ----- | -------- | ----------- |
+| `title` | Yes | Game title to search for (e.g. `"Cyberpunk 2077"`) |
+
+```yaml
+action:
+  - service: ha_gaming_hub.add_to_watchlist
+    data:
+      title: "Cyberpunk 2077"
+```
+
+### `ha_gaming_hub.remove_from_watchlist`
+
+Removes a game from the watchlist by its slug. The slug is the hyphenated lowercase title — find it in the entity_id of any sensor for that game (e.g. `sensor.gaming_hub_**cyberpunk-2077**_best_price`).
+
+| Field | Required | Description |
+| ----- | -------- | ----------- |
+| `slug` | Yes | Game slug (e.g. `"cyberpunk-2077"`) |
+
+```yaml
+action:
+  - service: ha_gaming_hub.remove_from_watchlist
+    data:
+      slug: "cyberpunk-2077"
 ```
 
 ---
