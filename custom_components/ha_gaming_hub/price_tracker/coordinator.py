@@ -44,6 +44,7 @@ class PriceTrackerCoordinator(GamingHubCoordinator):
         self._prev_sale_state: dict[str, bool] = {}
         self._prev_low_state: dict[str, bool] = {}
         self._initial_refresh_done: bool = False
+        self._score_cache: dict[str, dict] = {}
 
     def register_sensor_callbacks(
         self, on_add: Callable, on_remove: Callable
@@ -113,9 +114,28 @@ class PriceTrackerCoordinator(GamingHubCoordinator):
             except Exception as err:
                 _LOGGER.warning("ITAD batch price fetch failed: %s", err)
 
+        uncached_ids = [gid for gid in itad_ids if gid not in self._score_cache]
+        if uncached_ids:
+            try:
+                info_data = await self.itad.get_game_info_batch(uncached_ids)
+                for gid, info in info_data.items():
+                    mc = (info.get("reviews") or {}).get("metacritic") or {}
+                    oc = (info.get("reviews") or {}).get("opencritic") or {}
+                    self._score_cache[gid] = {
+                        "score": mc.get("score"),
+                        "metacritic_url": mc.get("url", ""),
+                        "opencritic_score": oc.get("score"),
+                        "opencritic_url": oc.get("url", ""),
+                    }
+                for gid in uncached_ids:
+                    self._score_cache.setdefault(gid, {})
+            except Exception as err:
+                _LOGGER.warning("ITAD game info fetch failed: %s", err)
+
         result: dict[str, dict] = {}
         for game, cs_result in zip(self.watchlist, cs_results):
             slug = game["slug"]
+            score_info = self._score_cache.get(game.get("itad_id", ""), {})
             entry: dict = {
                 "title": game["title"],
                 "best_price": None,
@@ -126,6 +146,10 @@ class PriceTrackerCoordinator(GamingHubCoordinator):
                 "in_steam_wishlist": False,
                 "thumb": None,
                 "retail_price": None,
+                "score": score_info.get("score"),
+                "metacritic_url": score_info.get("metacritic_url", ""),
+                "opencritic_score": score_info.get("opencritic_score"),
+                "opencritic_url": score_info.get("opencritic_url", ""),
             }
 
             if isinstance(cs_result, dict) and cs_result:

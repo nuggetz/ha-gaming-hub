@@ -46,7 +46,7 @@ async def async_setup_entry(
 
         def on_game_removed(slug: str) -> None:
             ent_reg = er.async_get(hass)
-            for sensor_type in ["best_price", "best_store", "discount_pct"]:
+            for sensor_type in ["best_price", "best_store", "discount_pct", "score"]:
                 uid = f"gaming_hub_{slug}_{sensor_type}"
                 entity_id = ent_reg.async_get_entity_id("sensor", DOMAIN, uid)
                 if entity_id:
@@ -90,6 +90,7 @@ def _price_tracker_sensors(coordinator, entry_id: str, game: dict) -> list:
         GameBestPriceSensor(coordinator, entry_id, slug, title),
         GameBestStoreSensor(coordinator, entry_id, slug, title),
         GameDiscountSensor(coordinator, entry_id, slug, title),
+        GameScoreSensor(coordinator, entry_id, slug, title),
     ]
 
 
@@ -228,6 +229,30 @@ class GameBestStoreSensor(_GameBaseSensor):
     @property
     def native_value(self) -> str | None:
         return self._game_data().get("best_store")
+
+
+class GameScoreSensor(_GameBaseSensor):
+    _attr_icon = "mdi:star-circle"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = "points"
+
+    def __init__(self, coordinator, entry_id: str, slug: str, title: str) -> None:
+        super().__init__(coordinator, entry_id, slug, title)
+        self._attr_name = f"{title} Score"
+        self._attr_unique_id = f"gaming_hub_{slug}_score"
+
+    @property
+    def native_value(self) -> int | None:
+        return self._game_data().get("score")
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        d = self._game_data()
+        attrs = {"metacritic_url": d.get("metacritic_url", "")}
+        if d.get("opencritic_score") is not None:
+            attrs["opencritic_score"] = d["opencritic_score"]
+            attrs["opencritic_url"] = d.get("opencritic_url", "")
+        return attrs
 
 
 class GameDiscountSensor(_GameBaseSensor):
