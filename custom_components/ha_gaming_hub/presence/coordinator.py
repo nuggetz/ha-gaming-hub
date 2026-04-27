@@ -20,6 +20,7 @@ class PresenceCoordinator(GamingHubCoordinator):
         steam_api_key: str,
         steam_ids: list[str],
         xbox_accounts: list[dict],
+        psn_accounts: list[str] | None = None,
     ) -> None:
         super().__init__(
             hass,
@@ -29,6 +30,7 @@ class PresenceCoordinator(GamingHubCoordinator):
         )
         self.steam_ids = steam_ids
         self.xbox_accounts = xbox_accounts
+        self.psn_accounts: list[str] = psn_accounts or []
 
         self._steam: SteamClient | None = (
             SteamClient(session, steam_api_key) if steam_api_key and steam_ids else None
@@ -85,6 +87,28 @@ class PresenceCoordinator(GamingHubCoordinator):
             accounts[f"xbox_{slug}"] = {
                 "platform": "Xbox",
                 "gamertag": slug,
+                "online": online,
+                "playing": playing,
+            }
+
+        for psn_slug in self.psn_accounts:
+            online_state = self.hass.states.get(f"sensor.{psn_slug}_online_status")
+            playing_state = self.hass.states.get(f"sensor.{psn_slug}_now_playing")
+
+            online = (
+                online_state is not None
+                and online_state.state not in ("offline", "unavailable", "unknown", "")
+            )
+            playing: str | None = None
+            if playing_state and playing_state.state not in (
+                "", "unavailable", "unknown", "None", "none"
+            ):
+                playing = playing_state.state
+
+            display_name = psn_slug.replace("_", " ").title()
+            accounts[f"psn_{psn_slug}"] = {
+                "platform": "PSN",
+                "name": display_name,
                 "online": online,
                 "playing": playing,
             }

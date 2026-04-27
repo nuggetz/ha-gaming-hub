@@ -184,7 +184,12 @@ class AccountOnlineBinarySensor(CoordinatorEntity, BinarySensorEntity):
         super().__init__(coordinator)
         self._account_key = account_key
         self._attr_device_info = _device_info(entry_id)
-        self._attr_icon = "mdi:steam" if platform == "Steam" else "mdi:microsoft-xbox"
+        if platform == "Steam":
+            self._attr_icon = "mdi:steam"
+        elif platform == "PSN":
+            self._attr_icon = "mdi:sony-playstation"
+        else:
+            self._attr_icon = "mdi:microsoft-xbox"
         self._attr_name = f"{name} Online"
         self._attr_unique_id = f"gaming_hub_{account_key}_online"
 

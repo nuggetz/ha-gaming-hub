@@ -17,6 +17,7 @@ CONF_STEAM_API_KEY = "steam_api_key"
 CONF_STEAM_IDS = "steam_ids"
 CONF_STEAM_WISHLIST_ID = "steam_wishlist_id"
 CONF_XBOX_ACCOUNTS = "xbox_accounts"
+CONF_PSN_ACCOUNTS = "psn_accounts"
 
 # Default polling intervals (seconds)
 DEFAULT_SCAN_INTERVAL_FREE_GAMES = 3600

@@ -29,6 +29,7 @@ from .const import (
     CONF_STEAM_IDS,
     CONF_STEAM_WISHLIST_ID,
     CONF_XBOX_ACCOUNTS,
+    CONF_PSN_ACCOUNTS,
     DEFAULT_SCAN_INTERVAL_FREE_GAMES,
     DEFAULT_SCAN_INTERVAL_PRICE_TRACKER,
 )
@@ -40,6 +41,7 @@ STEP_FREE_GAMES = "free_games"
 STEP_PRICE_TRACKER = "price_tracker"
 STEP_STEAM = "steam"
 STEP_XBOX_ENTITY = "xbox_entity"
+STEP_PSN_ENTITY = "psn_entity"
 STEP_SUMMARY = "summary"
 
 SCAN_INTERVAL_FREE_GAMES_KEY = "scan_interval_free_games"
@@ -83,7 +85,7 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         options=[
                             {"value": MODULE_FREE_GAMES, "label": "Free Games"},
                             {"value": MODULE_PRICE_TRACKER, "label": "Price Tracker"},
-                            {"value": MODULE_PRESENCE, "label": "Presence (Steam & Xbox)"},
+                            {"value": MODULE_PRESENCE, "label": "Presence (Steam, Xbox & PSN)"},
                         ],
                         multiple=True,
                         mode=SelectSelectorMode.LIST,
@@ -259,7 +261,7 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             selected = user_input.get("xbox_accounts", [])
             self._data[CONF_XBOX_ACCOUNTS] = [{"gamertag": s} for s in selected]
-            return await self.async_step_summary()
+            return await self.async_step_psn_entity()
 
         # Find all config entries belonging to the native Xbox integration
         xbox_entry_ids = {
@@ -289,7 +291,7 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # Auto-skip if the native Xbox integration is not installed
         if not xbox_slugs:
             self._data[CONF_XBOX_ACCOUNTS] = []
-            return await self.async_step_summary()
+            return await self.async_step_psn_entity()
 
         options = [{"value": s, "label": s} for s in sorted(xbox_slugs)]
         return self.async_show_form(
@@ -299,6 +301,49 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     SelectSelectorConfig(options=options, multiple=True, mode=SelectSelectorMode.LIST)
                 ),
             }),
+        )
+
+    async def async_step_psn_entity(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        """Select PSN accounts to track from the native PlayStation Network integration."""
+        if user_input is not None:
+            self._data[CONF_PSN_ACCOUNTS] = user_input.get("psn_accounts", [])
+            return await self.async_step_summary()
+
+        ent_reg = er.async_get(self.hass)
+        psn_slugs: list[str] = []
+        seen: set[str] = set()
+        for entity in ent_reg.entities.values():
+            if (
+                entity.platform == "playstation_network"
+                and entity.domain == "sensor"
+                and entity.entity_id.endswith("_online_status")
+            ):
+                slug = entity.entity_id.removeprefix("sensor.").removesuffix("_online_status")
+                if slug and slug not in seen:
+                    seen.add(slug)
+                    psn_slugs.append(slug)
+
+        _LOGGER.debug("PSN detected slugs: %s", psn_slugs)
+
+        if not psn_slugs:
+            self._data[CONF_PSN_ACCOUNTS] = []
+            return await self.async_step_summary()
+
+        options = [
+            {"value": s, "label": s.replace("_", " ").title()} for s in sorted(psn_slugs)
+        ]
+        return self.async_show_form(
+            step_id=STEP_PSN_ENTITY,
+            data_schema=vol.Schema({
+                vol.Optional("psn_accounts", default=[]): SelectSelector(
+                    SelectSelectorConfig(
+                        options=options, multiple=True, mode=SelectSelectorMode.LIST
+                    )
+                ),
+            }),
+            description_placeholders={},
         )
 
     async def async_step_reconfigure(
@@ -341,11 +386,14 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         steam_key = self._data.get(CONF_STEAM_API_KEY, "")
         steam_wishlist_id = self._data.get(CONF_STEAM_WISHLIST_ID, "")
         xbox_accounts = self._data.get(CONF_XBOX_ACCOUNTS, [])
+        psn_accounts = self._data.get(CONF_PSN_ACCOUNTS, [])
 
         if MODULE_PRESENCE in modules:
             xbox_summary = ", ".join(a["gamertag"] for a in xbox_accounts) if xbox_accounts else "none"
+            psn_summary = ", ".join(psn_accounts) if psn_accounts else "none"
         else:
             xbox_summary = "—"
+            psn_summary = "—"
 
         placeholders = {
             "modules": ", ".join(modules),
@@ -353,6 +401,7 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             "steam_key": ("***" + steam_key[-4:]) if len(steam_key) > 4 else ("*" * len(steam_key)) if steam_key else "not set",
             "steam_wishlist_id": steam_wishlist_id if steam_wishlist_id else "not set",
             "xbox_accounts": xbox_summary,
+            "psn_accounts": psn_summary,
         }
 
         return self.async_show_form(

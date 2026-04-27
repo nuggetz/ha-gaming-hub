@@ -42,9 +42,16 @@
           "xbox_accounts": "Xbox accounts to track"
         }
       },
+      "psn_entity": {
+        "title": "Presence — PlayStation Network Accounts",
+        "description": "The following PSN accounts were detected from the native PlayStation Network integration. Select which ones to track.\n\nIf nothing appears here, make sure the PlayStation Network integration is installed and configured first.",
+        "data": {
+          "psn_accounts": "PSN accounts to track"
+        }
+      },
       "summary": {
         "title": "Configuration Summary",
-        "description": "Modules: {modules}\nIsThereAnyDeal key: {itad_key}\nSteam key: {steam_key}\nSteam Wishlist ID: {steam_wishlist_id}\nXbox accounts: {xbox_accounts}\n\nClick Submit to save.",
+        "description": "Modules: {modules}\nIsThereAnyDeal key: {itad_key}\nSteam key: {steam_key}\nSteam Wishlist ID: {steam_wishlist_id}\nXbox accounts: {xbox_accounts}\nPSN accounts: {psn_accounts}\n\nClick Submit to save.",
         "data": {}
       },
       "reconfigure": {
