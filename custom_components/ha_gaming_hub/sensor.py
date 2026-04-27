@@ -46,7 +46,7 @@ async def async_setup_entry(
 
         def on_game_removed(slug: str) -> None:
             ent_reg = er.async_get(hass)
-            for sensor_type in ["best_price", "best_store", "discount_pct", "score"]:
+            for sensor_type in ["best_price", "best_store", "discount_pct", "score", "cost_per_hour"]:
                 uid = f"gaming_hub_{slug}_{sensor_type}"
                 entity_id = ent_reg.async_get_entity_id("sensor", DOMAIN, uid)
                 if entity_id:
@@ -91,6 +91,7 @@ def _price_tracker_sensors(coordinator, entry_id: str, game: dict) -> list:
         GameBestStoreSensor(coordinator, entry_id, slug, title),
         GameDiscountSensor(coordinator, entry_id, slug, title),
         GameScoreSensor(coordinator, entry_id, slug, title),
+        GameCostPerHourSensor(coordinator, entry_id, slug, title),
     ]
 
 
@@ -268,6 +269,35 @@ class GameDiscountSensor(_GameBaseSensor):
     @property
     def native_value(self) -> float:
         return self._game_data().get("discount_pct", 0.0)
+
+
+class GameCostPerHourSensor(_GameBaseSensor):
+    _attr_icon = "mdi:clock-dollar"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = "USD/h"
+
+    def __init__(self, coordinator, entry_id: str, slug: str, title: str) -> None:
+        super().__init__(coordinator, entry_id, slug, title)
+        self._attr_name = f"{title} Cost Per Hour"
+        self._attr_unique_id = f"gaming_hub_{slug}_cost_per_hour"
+
+    @property
+    def native_value(self) -> float | None:
+        d = self._game_data()
+        price = d.get("best_price")
+        hours = d.get("hours_main")
+        if price is None or not hours:
+            return None
+        return round(price / hours, 2)
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        d = self._game_data()
+        return {
+            "hours_main": d.get("hours_main"),
+            "hours_extra": d.get("hours_extra"),
+            "hours_completionist": d.get("hours_completionist"),
+        }
 
 
 class PriceTrackerDealsSensor(CoordinatorEntity, SensorEntity):

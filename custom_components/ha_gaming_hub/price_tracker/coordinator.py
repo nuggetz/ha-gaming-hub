@@ -9,6 +9,7 @@ from ..coordinator import GamingHubCoordinator
 from ..const import DEFAULT_SCAN_INTERVAL_PRICE_TRACKER, EVENT_DEAL_FOUND, EVENT_HISTORICAL_LOW
 from . import STORAGE_KEY, STORAGE_VERSION, load_watchlist, add_game_to_watchlist, remove_game_from_watchlist, _slugify
 from .cheapshark import CheapSharkClient
+from .hltb import search_hltb
 from .itad import ITADClient
 
 _LOGGER = logging.getLogger(__name__)
@@ -45,6 +46,7 @@ class PriceTrackerCoordinator(GamingHubCoordinator):
         self._prev_low_state: dict[str, bool] = {}
         self._initial_refresh_done: bool = False
         self._score_cache: dict[str, dict] = {}
+        self._hltb_cache: dict[str, dict | None] = {}
 
     def register_sensor_callbacks(
         self, on_add: Callable, on_remove: Callable
@@ -132,10 +134,15 @@ class PriceTrackerCoordinator(GamingHubCoordinator):
             except Exception as err:
                 _LOGGER.warning("ITAD game info fetch failed: %s", err)
 
+        uncached_hltb = [g for g in self.watchlist if g["slug"] not in self._hltb_cache]
+        for game in uncached_hltb:
+            self._hltb_cache[game["slug"]] = await search_hltb(game["title"])
+
         result: dict[str, dict] = {}
         for game, cs_result in zip(self.watchlist, cs_results):
             slug = game["slug"]
             score_info = self._score_cache.get(game.get("itad_id", ""), {})
+            hltb_info = self._hltb_cache.get(slug) or {}
             entry: dict = {
                 "title": game["title"],
                 "best_price": None,
@@ -150,6 +157,9 @@ class PriceTrackerCoordinator(GamingHubCoordinator):
                 "metacritic_url": score_info.get("metacritic_url", ""),
                 "opencritic_score": score_info.get("opencritic_score"),
                 "opencritic_url": score_info.get("opencritic_url", ""),
+                "hours_main": hltb_info.get("hours_main"),
+                "hours_extra": hltb_info.get("hours_extra"),
+                "hours_completionist": hltb_info.get("hours_completionist"),
             }
 
             if isinstance(cs_result, dict) and cs_result:
