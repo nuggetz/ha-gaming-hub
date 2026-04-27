@@ -48,7 +48,7 @@ You can enable any combination of modules during setup. Each module is independe
 
 Regardless of which modules you enable, the integration creates a single sensor that combines everything:
 
-**`sensor.gaming_hub_deals`**
+**`sensor.gaming_hub_gaming_hub_deals`**
 
 | What it shows | Source |
 | ------------- | ------ |
@@ -63,7 +63,7 @@ Any game that is also in your **Steam wishlist** gets a ⭐ prefix in its `sale_
 
 ```yaml
 type: custom:nintendo-wishlist-card
-entity: sensor.gaming_hub_deals
+entity: sensor.gaming_hub_gaming_hub_deals
 title: Gaming Hub
 ```
 
@@ -236,7 +236,7 @@ title: Price Tracker
 ```yaml
 type: markdown
 title: 🎮 Price Tracker
-content: >
+content: |
   {% set games = state_attr('sensor.gaming_hub_price_tracker_deals', 'on_sale') %}
   {% for g in games %}
   {% if g.box_art_url %}![]({{ g.box_art_url }}){% endif %}
@@ -443,14 +443,14 @@ action:
 
 | Entity | Description |
 | ------ | ----------- |
-| `sensor.gaming_hub_next_expiry` | Timestamp of the next free game expiry. Use with `device_class: timestamp` — HA displays it as "in X hours". Attributes: `title`, `store`, `url` of the soonest-expiring game. |
-| `sensor.gaming_hub_wishlist_deals` | Count of Price Tracker games that are **both** in your Steam wishlist and currently on sale. The `on_sale` attribute lists them in Nintendo Wishlist Card format. |
+| `sensor.gaming_hub_next_free_game_expiry` | Timestamp of the next free game expiry. Use with `device_class: timestamp` — HA displays it as "in X hours". Attributes: `title`, `store`, `url` of the soonest-expiring game. |
+| `sensor.gaming_hub_wishlist_games_on_sale` | Count of Price Tracker games that are **both** in your Steam wishlist and currently on sale. The `on_sale` attribute lists them in Nintendo Wishlist Card format. |
 
 ### Dashboard card — wishlist deals only
 
 ```yaml
 type: custom:nintendo-wishlist-card
-entity: sensor.gaming_hub_wishlist_deals
+entity: sensor.gaming_hub_wishlist_games_on_sale
 title: Wishlist On Sale
 ```
 
