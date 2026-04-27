@@ -74,11 +74,12 @@ class CheapSharkClient:
             return {}
 
         # Exclude $0.00 listings (Game Pass / subscription inclusions)
-        paid_deals = [d for d in deals if float(d.get("salePrice") or 0) > 0]
+        # Note: /games endpoint uses "price", not "salePrice" (that's /deals)
+        paid_deals = [d for d in deals if float(d.get("price") or 0) > 0]
         if not paid_deals:
             return {}
-        best_deal = min(paid_deals, key=lambda d: float(d.get("salePrice") or 9999))
-        best_price = float(best_deal.get("salePrice", 0))
+        best_deal = min(paid_deals, key=lambda d: float(d.get("price") or 9999))
+        best_price = float(best_deal.get("price", 0))
         store_id = str(best_deal.get("storeID", ""))
         best_store = stores.get(store_id, f"Store {store_id}")
 
@@ -123,7 +124,7 @@ class CheapSharkClient:
             "all_deals": [
                 {
                     "store": stores.get(str(d.get("storeID", "")), f"Store {d.get('storeID')}"),
-                    "price": float(d.get("salePrice") or 0),
+                    "price": float(d.get("price") or 0),
                     "retail_price": float(d.get("retailPrice") or 0),
                     "savings": round(float(d.get("savings") or 0), 1),
                 }
