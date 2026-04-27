@@ -360,7 +360,7 @@ class GamingHubDealsSensor(SensorEntity):
     """
 
     _attr_has_entity_name = True
-    _attr_name = "Gaming Hub Deals"
+    _attr_name = "Deals"
     _attr_unique_id = "gaming_hub_deals"
     _attr_icon = "mdi:tag-multiple-outline"
     _attr_state_class = SensorStateClass.MEASUREMENT

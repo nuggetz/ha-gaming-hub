@@ -48,7 +48,7 @@ You can enable any combination of modules during setup. Each module is independe
 
 Regardless of which modules you enable, the integration creates a single sensor that combines everything:
 
-**`sensor.gaming_hub_gaming_hub_deals`**
+**`sensor.gaming_hub_deals`**
 
 | What it shows | Source |
 | ------------- | ------ |
@@ -63,7 +63,7 @@ Any game that is also in your **Steam wishlist** gets a ⭐ prefix in its `sale_
 
 ```yaml
 type: custom:nintendo-wishlist-card
-entity: sensor.gaming_hub_gaming_hub_deals
+entity: sensor.gaming_hub_deals
 title: Gaming Hub
 ```
 
@@ -317,7 +317,7 @@ action:
 
 ### `ha_gaming_hub.remove_from_watchlist`
 
-Removes a game from the watchlist by its slug. The slug is the hyphenated lowercase title — find it in the entity_id of any sensor for that game (e.g. `sensor.gaming_hub_**cyberpunk-2077**_best_price`).
+Removes a game from the watchlist by its slug. The slug is the hyphenated lowercase title (e.g. `cyberpunk-2077`). You can find it in the entity_id of any sensor for that game — HA converts hyphens to underscores, so `cyberpunk-2077` appears as `sensor.gaming_hub_cyberpunk_2077_best_price`.
 
 | Field | Required | Description |
 | ----- | -------- | ----------- |
@@ -418,7 +418,7 @@ Entity IDs follow a platform-prefixed pattern: `steam_`, `xbox_`, or `psn_` foll
 | ------ | ---- | ----------- |
 | `binary_sensor.gaming_hub_someone_is_gaming` | Binary Sensor | `on` when **any** tracked account (Steam, Xbox or PSN) is actively playing |
 
-### Example automations
+### Example automation — scene trigger
 
 ```yaml
 # Turn on a light scene when someone starts gaming
@@ -432,22 +432,6 @@ action:
     data:
       group_name: Living Room
       scene_name: Gaming
-
-# Notify when a friend comes online
-alias: Friend online
-trigger:
-  - platform: event
-    event_type: ha_gaming_hub_friend_online
-action:
-  - service: notify.mobile_app_your_phone
-    data:
-      title: "{{ trigger.event.data.name }} is online"
-      message: >
-        {% if trigger.event.data.playing %}
-        Playing: {{ trigger.event.data.playing }}
-        {% else %}
-        Online on {{ trigger.event.data.platform }}
-        {% endif %}
 ```
 
 ---
@@ -543,10 +527,10 @@ action:
 
 ## Helper Sensors
 
-| Entity | Description |
-| ------ | ----------- |
-| `sensor.gaming_hub_next_free_game_expiry` | Timestamp of the next free game expiry. Use with `device_class: timestamp` — HA displays it as "in X hours". Attributes: `title`, `store`, `url` of the soonest-expiring game. |
-| `sensor.gaming_hub_wishlist_games_on_sale` | Count of Price Tracker games that are **both** in your Steam wishlist and currently on sale. The `on_sale` attribute lists them in Nintendo Wishlist Card format. |
+| Entity | Module required | Description |
+| ------ | --------------- | ----------- |
+| `sensor.gaming_hub_next_free_game_expiry` | Free Games | Timestamp of the next free game expiry. HA displays it as "in X hours". Attributes: `title`, `store`, `url` of the soonest-expiring game. |
+| `sensor.gaming_hub_wishlist_games_on_sale` | Price Tracker | Count of watchlist games that are **both** in your Steam wishlist and currently on sale. The `on_sale` attribute lists them in Nintendo Wishlist Card format. |
 
 ### Dashboard card — wishlist deals only
 
