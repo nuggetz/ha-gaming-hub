@@ -1,0 +1,30 @@
+add_to_watchlist:
+  name: Add game to watchlist
+  description: >
+    Searches for a game by title and adds it to the Price Tracker watchlist.
+    The integration picks the best match from CheapShark automatically.
+    Requires the Price Tracker module to be enabled.
+  fields:
+    title:
+      name: Title
+      description: The game title to search for and add.
+      required: true
+      example: "Cyberpunk 2077"
+      selector:
+        text:
+
+remove_from_watchlist:
+  name: Remove game from watchlist
+  description: >
+    Removes a game from the Price Tracker watchlist by its slug.
+    The slug is the lowercased, hyphenated version of the title
+    (e.g. "Cyberpunk 2077" → "cyberpunk-2077"). Find it in the
+    entity_id of any sensor for that game.
+  fields:
+    slug:
+      name: Slug
+      description: The game slug (e.g. "cyberpunk-2077").
+      required: true
+      example: "cyberpunk-2077"
+      selector:
+        text:
