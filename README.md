@@ -215,8 +215,8 @@ Entity IDs use a slugified version of the game title (e.g. `cyberpunk_2077`).
 | `sensor.gaming_hub_<slug>_best_price` | Sensor | Current lowest price across all stores (USD) |
 | `sensor.gaming_hub_<slug>_best_store` | Sensor | Store offering the best current price |
 | `sensor.gaming_hub_<slug>_discount` | Sensor | Current discount percentage (0–100) |
-| `sensor.gaming_hub_<slug>_score` | Sensor | Metacritic score (0–100). Requires ITAD API key. Attributes: `metacritic_url`, `opencritic_score`, `opencritic_url` |
-| `sensor.gaming_hub_<slug>_cost_per_hour` | Sensor | Current best price ÷ main story hours (USD/h). Attributes: `hours_main`, `hours_extra`, `hours_completionist` |
+| `sensor.gaming_hub_<slug>_score` | Sensor | Metacritic score (0–100). **Requires ITAD API key.** OpenCritic score available as attribute when present. Shows `unknown` without a key or if the game has no review data. Attributes: `metacritic_url`, `opencritic_score`, `opencritic_url` |
+| `sensor.gaming_hub_<slug>_cost_per_hour` | Sensor | Current best price ÷ main story hours from HowLongToBeat (USD/h). Shows `unknown` if HLTB has no data for the game. Attributes: `hours_main`, `hours_extra`, `hours_completionist` |
 | `binary_sensor.gaming_hub_<slug>_on_sale` | Binary Sensor | `on` when any store has a discount > 0% |
 | `binary_sensor.gaming_hub_<slug>_historical_low` | Binary Sensor | `on` when the current best price equals the all-time low |
 
@@ -256,11 +256,22 @@ content: |
 
 `calendar.gaming_hub_deals` shows all watchlist games that have a known deal expiry date as calendar events. Event title includes the discounted price and discount percentage; description marks all-time lows. Requires ITAD API key (expiry data comes from ITAD).
 
+### What requires an ITAD API key
+
+| Feature | Without key | With key |
+| ------- | ----------- | -------- |
+| Price & discount tracking | ✅ CheapShark (30+ stores) | ✅ + more stores |
+| `score` sensor | ❌ always `unknown` | ✅ Metacritic/OpenCritic |
+| `historical_low` binary sensor | ✅ via CheapShark | ✅ via ITAD |
+| `calendar.gaming_hub_deals` | ❌ always empty | ✅ Flash Sales with expiry |
+
+> Games available through subscription services (Xbox Game Pass, EA Play, etc.) are excluded from price tracking — the sensor shows `unknown` rather than `$0.00`.
+
 ### Price Tracker configuration options
 
 | Field | Default | Notes |
 | ----- | ------- | ----- |
-| ITAD API Key | *(empty)* | Optional |
+| ITAD API Key | *(empty)* | Optional — see table above |
 | Polling interval | 3 600 s (1 h) | Min 1 h, max 24 h |
 | Steam API Key | *(empty)* | Pre-filled if entered in Free Games step |
 | SteamID64 | *(empty)* | Pre-filled if entered in Free Games step |
@@ -554,7 +565,8 @@ title: Wishlist On Sale
 > - **New free game alert** — notify when a new game is available for free
 > - **Wishlist deal alert** — notify when a wishlisted game goes on sale
 > - **Historical low alert** — notify when a tracked game hits its all-time low
-> - **Friend online** — trigger a scene or notify when a friend comes online on Steam or Xbox
+> - **Friend online** — trigger a scene or notify when a friend comes online on Steam, Xbox or PSN
+> - **Session ended** — log or notify when a gaming session ends with duration
 
 ---
 
