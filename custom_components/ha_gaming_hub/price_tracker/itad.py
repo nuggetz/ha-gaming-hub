@@ -78,6 +78,7 @@ class ITADClient:
                     "best_price": best_deal.get("price", {}).get("amount"),
                     "best_store": best_deal.get("shop", {}).get("name", ""),
                     "cut_pct": best_deal.get("cut", 0),
+                    "expiry": best_deal.get("expiry"),
                     "all_deals": [
                         {
                             "store": d.get("shop", {}).get("name", ""),

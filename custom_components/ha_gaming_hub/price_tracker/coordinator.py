@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from datetime import datetime, timezone
 from typing import Callable
 
 from homeassistant.core import HomeAssistant
@@ -143,6 +144,16 @@ class PriceTrackerCoordinator(GamingHubCoordinator):
             slug = game["slug"]
             score_info = self._score_cache.get(game.get("itad_id", ""), {})
             hltb_info = self._hltb_cache.get(slug) or {}
+            itad_info = itad_data.get(game.get("itad_id", ""), {})
+            deal_end_date: datetime | None = None
+            expiry_str = itad_info.get("expiry")
+            if expiry_str:
+                try:
+                    deal_end_date = datetime.fromisoformat(
+                        expiry_str.replace("Z", "+00:00")
+                    )
+                except (ValueError, AttributeError):
+                    pass
             entry: dict = {
                 "title": game["title"],
                 "best_price": None,
@@ -160,6 +171,7 @@ class PriceTrackerCoordinator(GamingHubCoordinator):
                 "hours_main": hltb_info.get("hours_main"),
                 "hours_extra": hltb_info.get("hours_extra"),
                 "hours_completionist": hltb_info.get("hours_completionist"),
+                "deal_end_date": deal_end_date,
             }
 
             if isinstance(cs_result, dict) and cs_result:
