@@ -197,7 +197,7 @@ class _GameBaseSensor(CoordinatorEntity, SensorEntity):
 
 class GameBestPriceSensor(_GameBaseSensor):
     _attr_icon = "mdi:tag"
-    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_state_class = SensorStateClass.TOTAL
     _attr_device_class = SensorDeviceClass.MONETARY
     _attr_native_unit_of_measurement = "USD"
 
