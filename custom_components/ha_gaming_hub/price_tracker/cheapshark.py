@@ -66,7 +66,9 @@ class CheapSharkClient:
         if not deals:
             return {}
 
-        best_deal = min(deals, key=lambda d: float(d.get("salePrice", 9999)))
+        # Exclude $0.00 listings (Game Pass / subscription inclusions)
+        paid_deals = [d for d in deals if float(d.get("salePrice", 0)) > 0]
+        best_deal = min(paid_deals or deals, key=lambda d: float(d.get("salePrice", 9999)))
         best_price = float(best_deal.get("salePrice", 0))
         store_id = str(best_deal.get("storeID", ""))
         best_store = stores.get(store_id, f"Store {store_id}")
