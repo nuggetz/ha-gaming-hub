@@ -1,10 +1,11 @@
 import asyncio
 import logging
+from datetime import datetime, timezone
 
 from homeassistant.core import HomeAssistant
 
 from ..coordinator import GamingHubCoordinator
-from ..const import EVENT_FRIEND_ONLINE
+from ..const import EVENT_FRIEND_ONLINE, EVENT_SESSION_STARTED, EVENT_SESSION_ENDED
 from .steam import SteamClient
 
 _LOGGER = logging.getLogger(__name__)
@@ -36,6 +37,8 @@ class PresenceCoordinator(GamingHubCoordinator):
             SteamClient(session, steam_api_key) if steam_api_key and steam_ids else None
         )
         self._prev_online: dict[str, bool] = {}
+        self._prev_playing: dict[str, str | None] = {}
+        self._session_start: dict[str, datetime | None] = {}
         self._initial_refresh_done: bool = False
 
     async def _async_update_data(self) -> dict:
@@ -113,17 +116,47 @@ class PresenceCoordinator(GamingHubCoordinator):
                 "playing": playing,
             }
 
+        now = datetime.now(tz=timezone.utc)
+
         if self._initial_refresh_done:
             for key, acc in accounts.items():
+                name = acc.get("name") or acc.get("gamertag") or key
+                platform = acc.get("platform", "")
+                curr_playing = acc.get("playing")
+                prev_playing = self._prev_playing.get(key)
+
                 if acc.get("online") and not self._prev_online.get(key, False):
                     self.hass.bus.async_fire(EVENT_FRIEND_ONLINE, {
-                        "platform": acc.get("platform", ""),
-                        "name": acc.get("name") or acc.get("gamertag") or key,
-                        "playing": acc.get("playing"),
+                        "platform": platform,
+                        "name": name,
+                        "playing": curr_playing,
                     })
+
+                if curr_playing and not prev_playing:
+                    self._session_start[key] = now
+                    self.hass.bus.async_fire(EVENT_SESSION_STARTED, {
+                        "platform": platform,
+                        "name": name,
+                        "game": curr_playing,
+                    })
+                elif not curr_playing and prev_playing:
+                    start = self._session_start.get(key)
+                    duration_min = int((now - start).total_seconds() / 60) if start else 0
+                    self.hass.bus.async_fire(EVENT_SESSION_ENDED, {
+                        "platform": platform,
+                        "name": name,
+                        "game": prev_playing,
+                        "duration_minutes": duration_min,
+                    })
+                    self._session_start[key] = None
         else:
             self._initial_refresh_done = True
+
         self._prev_online = {key: bool(acc.get("online")) for key, acc in accounts.items()}
+        self._prev_playing = {key: acc.get("playing") for key, acc in accounts.items()}
+
+        for key, acc in accounts.items():
+            acc["session_start"] = self._session_start.get(key)
 
         someone_is_gaming = any(bool(acc.get("playing")) for acc in accounts.values())
         return {"accounts": accounts, "someone_is_gaming": someone_is_gaming}

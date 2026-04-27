@@ -69,6 +69,7 @@ async def async_setup_entry(
             platform = acc.get("platform", "")
             name = acc.get("name") or acc.get("gamertag") or account_key
             entities.append(AccountPlayingSensor(coordinator, entry.entry_id, account_key, name, platform))
+            entities.append(SessionDurationSensor(coordinator, entry.entry_id, account_key, name, platform))
             if platform == "Steam":
                 entities.append(SteamHoursRecentSensor(coordinator, entry.entry_id, account_key, name))
 
@@ -532,8 +533,12 @@ class AccountPlayingSensor(_AccountBaseSensor):
 
     def __init__(self, coordinator, entry_id: str, account_key: str, name: str, platform: str) -> None:
         super().__init__(coordinator, entry_id, account_key, name, platform)
-        icon = "mdi:steam" if platform == "Steam" else "mdi:microsoft-xbox"
-        self._attr_icon = icon
+        if platform == "Steam":
+            self._attr_icon = "mdi:steam"
+        elif platform == "PSN":
+            self._attr_icon = "mdi:sony-playstation"
+        else:
+            self._attr_icon = "mdi:microsoft-xbox"
         self._attr_name = f"{name} Playing"
         self._attr_unique_id = f"gaming_hub_{account_key}_playing"
 
@@ -555,3 +560,31 @@ class SteamHoursRecentSensor(_AccountBaseSensor):
     @property
     def native_value(self) -> float | None:
         return self._account_data().get("hours_recent")
+
+
+class SessionDurationSensor(_AccountBaseSensor):
+    _attr_icon = "mdi:clock-play"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = "min"
+
+    def __init__(self, coordinator, entry_id: str, account_key: str, name: str, platform: str) -> None:
+        super().__init__(coordinator, entry_id, account_key, name, platform)
+        self._attr_name = f"{name} Session Duration"
+        self._attr_unique_id = f"gaming_hub_{account_key}_session_duration"
+
+    @property
+    def native_value(self) -> int | None:
+        session_start = self._account_data().get("session_start")
+        if session_start is None:
+            return None
+        from datetime import datetime
+        return int((datetime.now(tz=timezone.utc) - session_start).total_seconds() / 60)
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        data = self._account_data()
+        attrs: dict = {"game": data.get("playing")}
+        session_start = data.get("session_start")
+        if session_start:
+            attrs["started_at"] = session_start.isoformat()
+        return attrs

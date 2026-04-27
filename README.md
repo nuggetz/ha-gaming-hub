@@ -18,7 +18,7 @@ A HACS custom integration for Home Assistant that brings gaming data into your s
 | ------ | ----------- | ---------------- |
 | **Free Games** | Tracks free game promotions from Epic Games Store and GamerPower | No |
 | **Price Tracker** | Monitors game prices and deals via CheapShark / IsThereAnyDeal | Optional (ITAD) |
-| **Presence** | Shows Steam and Xbox online status for tracked accounts | Yes (Steam / Xbox) |
+| **Presence** | Shows Steam, Xbox and PlayStation Network online status for tracked accounts | Yes (Steam) / No (Xbox, PSN) |
 
 You can enable any combination of modules during setup. Each module is independent.
 
@@ -92,6 +92,7 @@ The integration reads game titles directly from the `steam_wishlist` entities al
 | `sensor.gaming_hub_free_games_count` | Sensor | Number of currently available free games |
 | `sensor.gaming_hub_free_games_value` | Sensor | Total value of current free games (USD) |
 | `calendar.gaming_hub_free_games` | Calendar | All free games as calendar events with claim deadlines |
+| `binary_sensor.gaming_hub_free_game_expiring_soon` | Binary Sensor | `on` when a free game expires within 24 h. Attributes: `title`, `store`, `url`, `expires_in_hours` |
 
 > **Note — entity IDs:** if your entities show up as `sensor.free_games_available`, HA has cached old IDs. Go to **Settings → Entities**, search for "free games", delete the old entries, then reload the integration.
 
@@ -251,6 +252,10 @@ content: |
   {% endfor %}
 ```
 
+### Deals Calendar
+
+`calendar.gaming_hub_deals` shows all watchlist games that have a known deal expiry date as calendar events. Event title includes the discounted price and discount percentage; description marks all-time lows. Requires ITAD API key (expiry data comes from ITAD).
+
 ### Price Tracker configuration options
 
 | Field | Default | Notes |
@@ -318,7 +323,7 @@ action:
 
 ## Presence Module
 
-Shows the online and gaming status of Steam and Xbox accounts in real time.
+Shows the online and gaming status of Steam, Xbox and PlayStation Network accounts in real time.
 
 ### Steam setup (optional)
 
@@ -353,29 +358,54 @@ Xbox support reads data from the **official Home Assistant Xbox integration** �
 
 During Presence setup, after the Steam step, detected Xbox accounts are listed for selection. If the Xbox integration is not installed, this step is skipped automatically.
 
+### PlayStation Network (PSN) setup
+
+PSN support reads data from the **official Home Assistant PlayStation Network integration** — no extra credentials needed.
+
+#### Step 1 — Install the native PSN integration
+
+1. **Settings → Integrations → Add Integration → PlayStation Network**
+2. Complete the OAuth flow
+3. The integration creates `sensor.<username>_online_status` and `sensor.<username>_now_playing` entities automatically
+
+#### Step 2 — Link PSN in HA Gaming Hub
+
+During Presence setup, after the Xbox step, detected PSN accounts are listed for selection. If the PSN integration is not installed, this step is skipped automatically.
+
 ### Presence entities
+
+Entity IDs follow a platform-prefixed pattern: `steam_`, `xbox_`, or `psn_` followed by the account identifier.
 
 #### Per Steam account
 
 | Entity | Type | Description |
 | ------ | ---- | ----------- |
-| `binary_sensor.gaming_hub_<steamid>_online` | Binary Sensor | `on` when online (any state except Offline) |
-| `sensor.gaming_hub_<steamid>_playing` | Sensor | Current game, or `—` if idle |
-| `sensor.gaming_hub_<steamid>_status` | Sensor | Detailed status: `Online`, `Away`, `Busy`, `Snooze`, etc. |
-| `sensor.gaming_hub_<steamid>_hours_recent` | Sensor | Hours played in the last 2 weeks |
+| `binary_sensor.gaming_hub_steam_<steamid>_online` | Binary Sensor | `on` when online (any state except Offline) |
+| `sensor.gaming_hub_steam_<steamid>_playing` | Sensor | Current game, or `None` if idle |
+| `sensor.gaming_hub_steam_<steamid>_hours_recent` | Sensor | Hours played in the last 2 weeks |
+| `sensor.gaming_hub_steam_<steamid>_session_duration` | Sensor | Minutes in the current play session. `None` when not playing. Attributes: `game`, `started_at` |
 
 #### Per Xbox account
 
 | Entity | Type | Description |
 | ------ | ---- | ----------- |
-| `binary_sensor.gaming_hub_<gamertag>_online` | Binary Sensor | `on` when active on Xbox Live |
-| `sensor.gaming_hub_<gamertag>_playing` | Sensor | Current game or activity, or `—` if idle |
+| `binary_sensor.gaming_hub_xbox_<gamertag>_online` | Binary Sensor | `on` when active on Xbox Live |
+| `sensor.gaming_hub_xbox_<gamertag>_playing` | Sensor | Current game or activity, or `None` if idle |
+| `sensor.gaming_hub_xbox_<gamertag>_session_duration` | Sensor | Minutes in the current play session. `None` when not playing. Attributes: `game`, `started_at` |
+
+#### Per PSN account
+
+| Entity | Type | Description |
+| ------ | ---- | ----------- |
+| `binary_sensor.gaming_hub_psn_<username>_online` | Binary Sensor | `on` when online (any status other than offline) |
+| `sensor.gaming_hub_psn_<username>_playing` | Sensor | Current game, or `None` if idle |
+| `sensor.gaming_hub_psn_<username>_session_duration` | Sensor | Minutes in the current play session. `None` when not playing. Attributes: `game`, `started_at` |
 
 #### Aggregate
 
 | Entity | Type | Description |
 | ------ | ---- | ----------- |
-| `binary_sensor.gaming_hub_someone_is_gaming` | Binary Sensor | `on` when **any** tracked account is actively playing |
+| `binary_sensor.gaming_hub_someone_is_gaming` | Binary Sensor | `on` when **any** tracked account (Steam, Xbox or PSN) is actively playing |
 
 ### Example automations
 
@@ -395,15 +425,18 @@ action:
 # Notify when a friend comes online
 alias: Friend online
 trigger:
-  - platform: state
-    entity_id: binary_sensor.gaming_hub_76561198XXXXXXXXX_online
-    to: "on"
+  - platform: event
+    event_type: ha_gaming_hub_friend_online
 action:
   - service: notify.mobile_app_your_phone
     data:
+      title: "{{ trigger.event.data.name }} is online"
       message: >
-        {{ states('sensor.gaming_hub_76561198XXXXXXXXX_status') }} —
-        {{ states('sensor.gaming_hub_76561198XXXXXXXXX_playing') }}
+        {% if trigger.event.data.playing %}
+        Playing: {{ trigger.event.data.playing }}
+        {% else %}
+        Online on {{ trigger.event.data.platform }}
+        {% endif %}
 ```
 
 ---
@@ -417,9 +450,11 @@ The integration fires HA events whenever something notable changes. Use them as 
 | `ha_gaming_hub_free_game_added` | A new free game appears | `title`, `store`, `end_date`, `url`, `in_steam_wishlist` |
 | `ha_gaming_hub_deal_found` | A tracked game goes on sale | `title`, `best_price`, `best_store`, `discount_pct`, `in_steam_wishlist` |
 | `ha_gaming_hub_historical_low` | A tracked game hits its all-time low price | `title`, `best_price`, `best_store`, `in_steam_wishlist` |
-| `ha_gaming_hub_friend_online` | A Steam or Xbox friend comes online | `platform`, `name`, `playing` |
+| `ha_gaming_hub_friend_online` | A Steam, Xbox or PSN friend comes online | `platform`, `name`, `playing` |
+| `ha_gaming_hub_session_started` | An account starts playing a game | `platform`, `name`, `game` |
+| `ha_gaming_hub_session_ended` | An account stops playing | `platform`, `name`, `game`, `duration_minutes` |
 
-Events are **not** fired on the first HA startup — only on subsequent changes.
+Events are **not** fired on the first HA startup — only on subsequent changes. Session duration resets on HA restart.
 
 ### Example: notify on new wishlist deal
 
@@ -477,6 +512,22 @@ action:
         {% endif %}
 ```
 
+### Example: notify on gaming session end
+
+```yaml
+alias: Session ended
+trigger:
+  - platform: event
+    event_type: ha_gaming_hub_session_ended
+action:
+  - service: notify.mobile_app_your_phone
+    data:
+      title: "{{ trigger.event.data.name }} finished gaming"
+      message: >
+        Played {{ trigger.event.data.game }}
+        for {{ trigger.event.data.duration_minutes }} minutes.
+```
+
 ---
 
 ## Helper Sensors
@@ -515,4 +566,5 @@ title: Wishlist On Sale
 | 1 | Free Games module | ✅ Done |
 | 2 | Price Tracker module | ✅ Done |
 | 3 | Presence module (Steam + Xbox) | ✅ Done |
-| 4 | Events, helper sensors & automation blueprints | 🔄 In progress |
+| 4 | Events, helper sensors & reconfigure | ✅ Done |
+| 5 | PSN presence, score/cost-per-hour sensors, services, deals calendar, session tracking | ✅ Done |
