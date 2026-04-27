@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timedelta, timezone
 
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
@@ -8,7 +9,14 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, MODULE_PRICE_TRACKER, MODULE_PRESENCE
+from .const import (
+    CONF_EXPIRY_WARNING_HOURS,
+    DEFAULT_EXPIRY_WARNING_HOURS,
+    DOMAIN,
+    MODULE_FREE_GAMES,
+    MODULE_PRICE_TRACKER,
+    MODULE_PRESENCE,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -22,6 +30,14 @@ async def async_setup_entry(
     coordinators = entry_data["coordinators"]
 
     entities = []
+
+    if MODULE_FREE_GAMES in coordinators:
+        expiry_hours = entry.options.get(CONF_EXPIRY_WARNING_HOURS, DEFAULT_EXPIRY_WARNING_HOURS)
+        entities.append(
+            FreeGameExpiringSoonBinarySensor(
+                coordinators[MODULE_FREE_GAMES], entry.entry_id, expiry_hours
+            )
+        )
 
     if MODULE_PRICE_TRACKER in coordinators:
         coordinator = coordinators[MODULE_PRICE_TRACKER]
@@ -61,6 +77,52 @@ def _device_info(entry_id: str) -> DeviceInfo:
         name="Gaming Hub",
         manufacturer="HA Gaming Hub",
     )
+
+
+# ---------------------------------------------------------------------------
+# Free Games binary sensors
+# ---------------------------------------------------------------------------
+
+class FreeGameExpiringSoonBinarySensor(CoordinatorEntity, BinarySensorEntity):
+    _attr_has_entity_name = True
+    _attr_name = "Free Game Expiring Soon"
+    _attr_unique_id = "gaming_hub_free_game_expiring_soon"
+    _attr_icon = "mdi:timer-alert"
+
+    def __init__(self, coordinator, entry_id: str, warning_hours: int) -> None:
+        super().__init__(coordinator)
+        self._attr_device_info = _device_info(entry_id)
+        self._warning_hours = warning_hours
+
+    def _soonest_expiring(self) -> dict | None:
+        games = (self.coordinator.data or {}).get("current", [])
+        now = datetime.now(tz=timezone.utc)
+        threshold = timedelta(hours=self._warning_hours)
+        soonest: dict | None = None
+        for g in games:
+            end = g.get("end_date")
+            if end and (end - now) <= threshold:
+                if soonest is None or end < soonest["end_date"]:
+                    soonest = g
+        return soonest
+
+    @property
+    def is_on(self) -> bool:
+        return self._soonest_expiring() is not None
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        g = self._soonest_expiring()
+        if not g:
+            return {}
+        now = datetime.now(tz=timezone.utc)
+        expires_in = (g["end_date"] - now).total_seconds() / 3600
+        return {
+            "title": g.get("title", ""),
+            "store": g.get("store") or g.get("platform", ""),
+            "url": g.get("url", ""),
+            "expires_in_hours": round(expires_in, 1),
+        }
 
 
 def _price_tracker_binary_sensors(coordinator, entry_id: str, game: dict) -> list:

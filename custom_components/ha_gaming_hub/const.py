@@ -33,6 +33,10 @@ STEAM_API_URL = "https://api.steampowered.com"
 # Entity name prefixes
 ENTITY_PREFIX = "gaming_hub"
 
+# Free game expiry warning
+DEFAULT_EXPIRY_WARNING_HOURS = 24
+CONF_EXPIRY_WARNING_HOURS = "expiry_warning_hours"
+
 # Events
 EVENT_FREE_GAME_ADDED = "ha_gaming_hub_free_game_added"
 EVENT_DEAL_FOUND = "ha_gaming_hub_deal_found"
