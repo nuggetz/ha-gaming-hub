@@ -149,8 +149,14 @@ class PresenceCoordinator(GamingHubCoordinator):
                         "duration_minutes": duration_min,
                     })
                     self._session_start[key] = None
+                elif curr_playing and self._session_start.get(key) is None:
+                    # Missed the start transition (e.g. stale state at startup)
+                    self._session_start[key] = now
         else:
             self._initial_refresh_done = True
+            for key, acc in accounts.items():
+                if acc.get("playing"):
+                    self._session_start[key] = now
 
         self._prev_online = {key: bool(acc.get("online")) for key, acc in accounts.items()}
         self._prev_playing = {key: acc.get("playing") for key, acc in accounts.items()}
