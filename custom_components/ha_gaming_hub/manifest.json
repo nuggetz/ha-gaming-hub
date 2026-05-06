@@ -9,6 +9,7 @@
   "issue_tracker": "https://github.com/nuggetz/ha-gaming-hub/issues",
   "requirements": [
     "aiohttp>=3.9.0",
+    "howlongtobeatpy>=1.0.0",
     "xbox-webapi>=2.0.9"
   ],
   "version": "0.1.0"

@@ -78,6 +78,7 @@ class ITADClient:
                     "best_price": best_deal.get("price", {}).get("amount"),
                     "best_store": best_deal.get("shop", {}).get("name", ""),
                     "cut_pct": best_deal.get("cut", 0),
+                    "expiry": best_deal.get("expiry"),
                     "all_deals": [
                         {
                             "store": d.get("shop", {}).get("name", ""),
@@ -88,6 +89,32 @@ class ITADClient:
                         for d in deals
                     ],
                 }
+        return results
+
+    async def get_game_info_batch(self, game_ids: list[str]) -> dict[str, dict]:
+        """Fetch Metacritic/OpenCritic scores from ITAD /games/info/v2 (requires API key)."""
+        if not self._api_key:
+            return {}
+        results: dict[str, dict] = {}
+        for i, game_id in enumerate(game_ids):
+            if i > 0:
+                await asyncio.sleep(_THROTTLE_DELAY)
+            try:
+                async with self._session.get(
+                    f"{ITAD_API_URL}/games/info/v2",
+                    params={"id": game_id},
+                    headers=self._headers(),
+                ) as resp:
+                    if resp.status in (401, 403):
+                        _LOGGER.debug("ITAD API key required for game info")
+                        break
+                    resp.raise_for_status()
+                    data = await resp.json(content_type=None)
+            except Exception as err:
+                _LOGGER.warning("ITAD info fetch failed for %s: %s", game_id, err)
+                continue
+            if isinstance(data, dict):
+                results[game_id] = data
         return results
 
     async def is_historical_low(self, game_id: str, current_price: float) -> bool:

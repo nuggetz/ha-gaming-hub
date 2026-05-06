@@ -38,17 +38,24 @@ class CheapSharkClient:
             return []
         if not isinstance(data, list):
             return []
-        seen: set[str] = set()
-        results = []
+        # Deduplicate by gameID; prefer entries with a non-zero sale price so that
+        # Game Pass / subscription $0 listings don't shadow purchasable versions.
+        seen: dict[str, dict] = {}
         for deal in data:
             game_id = str(deal.get("gameID", ""))
-            if game_id and game_id not in seen:
-                seen.add(game_id)
-                results.append({
+            if not game_id:
+                continue
+            try:
+                price = float(deal.get("salePrice") or 0)
+            except (ValueError, TypeError):
+                price = 0.0
+            if game_id not in seen or (seen[game_id]["_price"] == 0 and price > 0):
+                seen[game_id] = {
                     "gameID": game_id,
                     "title": deal.get("title") or deal.get("internalName") or "",
-                })
-        return results
+                    "_price": price,
+                }
+        return [{"gameID": v["gameID"], "title": v["title"]} for v in seen.values()]
 
     async def get_game_prices(self, game_id: str) -> dict:
         stores = await self.get_stores()
@@ -66,8 +73,13 @@ class CheapSharkClient:
         if not deals:
             return {}
 
-        best_deal = min(deals, key=lambda d: float(d.get("salePrice", 9999)))
-        best_price = float(best_deal.get("salePrice", 0))
+        # Exclude $0.00 listings (Game Pass / subscription inclusions)
+        # Note: /games endpoint uses "price", not "salePrice" (that's /deals)
+        paid_deals = [d for d in deals if float(d.get("price") or 0) > 0]
+        if not paid_deals:
+            return {}
+        best_deal = min(paid_deals, key=lambda d: float(d.get("price") or 9999))
+        best_price = float(best_deal.get("price", 0))
         store_id = str(best_deal.get("storeID", ""))
         best_store = stores.get(store_id, f"Store {store_id}")
 
@@ -112,9 +124,9 @@ class CheapSharkClient:
             "all_deals": [
                 {
                     "store": stores.get(str(d.get("storeID", "")), f"Store {d.get('storeID')}"),
-                    "price": float(d.get("salePrice", 0)),
-                    "retail_price": float(d.get("retailPrice", 0)),
-                    "savings": round(float(d.get("savings", "0")), 1),
+                    "price": float(d.get("price") or 0),
+                    "retail_price": float(d.get("retailPrice") or 0),
+                    "savings": round(float(d.get("savings") or 0), 1),
                 }
                 for d in deals
             ],

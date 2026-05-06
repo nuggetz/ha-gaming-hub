@@ -18,7 +18,7 @@ A HACS custom integration for Home Assistant that brings gaming data into your s
 | ------ | ----------- | ---------------- |
 | **Free Games** | Tracks free game promotions from Epic Games Store and GamerPower | No |
 | **Price Tracker** | Monitors game prices and deals via CheapShark / IsThereAnyDeal | Optional (ITAD) |
-| **Presence** | Shows Steam and Xbox online status for tracked accounts | Yes (Steam / Xbox) |
+| **Presence** | Shows Steam, Xbox and PlayStation Network online status for tracked accounts | Yes (Steam) / No (Xbox, PSN) |
 
 You can enable any combination of modules during setup. Each module is independent.
 
@@ -48,7 +48,7 @@ You can enable any combination of modules during setup. Each module is independe
 
 Regardless of which modules you enable, the integration creates a single sensor that combines everything:
 
-**`sensor.gaming_hub_gaming_hub_deals`**
+**`sensor.gaming_hub_deals`**
 
 | What it shows | Source |
 | ------------- | ------ |
@@ -63,7 +63,7 @@ Any game that is also in your **Steam wishlist** gets a ⭐ prefix in its `sale_
 
 ```yaml
 type: custom:nintendo-wishlist-card
-entity: sensor.gaming_hub_gaming_hub_deals
+entity: sensor.gaming_hub_deals
 title: Gaming Hub
 ```
 
@@ -92,6 +92,7 @@ The integration reads game titles directly from the `steam_wishlist` entities al
 | `sensor.gaming_hub_free_games_count` | Sensor | Number of currently available free games |
 | `sensor.gaming_hub_free_games_value` | Sensor | Total value of current free games (USD) |
 | `calendar.gaming_hub_free_games` | Calendar | All free games as calendar events with claim deadlines |
+| `binary_sensor.gaming_hub_free_game_expiring_soon` | Binary Sensor | `on` when a free game expires within 24 h. Attributes: `title`, `store`, `url`, `expires_in_hours` |
 
 > **Note — entity IDs:** if your entities show up as `sensor.free_games_available`, HA has cached old IDs. Go to **Settings → Entities**, search for "free games", delete the old entries, then reload the integration.
 
@@ -198,10 +199,12 @@ You can leave this field blank: the integration will use CheapShark-only data, w
 
 ### Managing your watchlist
 
-After setup, go to **Settings → Integrations → HA Gaming Hub → Configure**:
+**From the UI:** go to **Settings → Integrations → HA Gaming Hub → Configure**:
 
 - Type a game title in **Add game** and submit → a search step shows matching results, pick the correct one
 - Select a game in **Remove game** and submit → the game and all its entities are deleted immediately
+
+**From automations or scripts:** use the built-in services (see [Services](#services) below).
 
 ### Entities (per tracked game)
 
@@ -212,6 +215,8 @@ Entity IDs use a slugified version of the game title (e.g. `cyberpunk_2077`).
 | `sensor.gaming_hub_<slug>_best_price` | Sensor | Current lowest price across all stores (USD) |
 | `sensor.gaming_hub_<slug>_best_store` | Sensor | Store offering the best current price |
 | `sensor.gaming_hub_<slug>_discount` | Sensor | Current discount percentage (0–100) |
+| `sensor.gaming_hub_<slug>_score` | Sensor | Metacritic score (0–100). **Requires ITAD API key.** OpenCritic score available as attribute when present. Shows `unknown` without a key or if the game has no review data. Attributes: `metacritic_url`, `opencritic_score`, `opencritic_url` |
+| `sensor.gaming_hub_<slug>_cost_per_hour` | Sensor | Current best price ÷ main story hours from HowLongToBeat (USD/h). Shows `unknown` if HLTB has no data for the game. Attributes: `hours_main`, `hours_extra`, `hours_completionist` |
 | `binary_sensor.gaming_hub_<slug>_on_sale` | Binary Sensor | `on` when any store has a discount > 0% |
 | `binary_sensor.gaming_hub_<slug>_historical_low` | Binary Sensor | `on` when the current best price equals the all-time low |
 
@@ -247,11 +252,26 @@ content: |
   {% endfor %}
 ```
 
+### Deals Calendar
+
+`calendar.gaming_hub_deals` shows all watchlist games that have a known deal expiry date as calendar events. Event title includes the discounted price and discount percentage; description marks all-time lows. Requires ITAD API key (expiry data comes from ITAD).
+
+### What requires an ITAD API key
+
+| Feature | Without key | With key |
+| ------- | ----------- | -------- |
+| Price & discount tracking | ✅ CheapShark (30+ stores) | ✅ + more stores |
+| `score` sensor | ❌ always `unknown` | ✅ Metacritic/OpenCritic |
+| `historical_low` binary sensor | ✅ via CheapShark | ✅ via ITAD |
+| `calendar.gaming_hub_deals` | ❌ always empty | ✅ Flash Sales with expiry |
+
+> Games available through subscription services (Xbox Game Pass, EA Play, etc.) are excluded from price tracking — the sensor shows `unknown` rather than `$0.00`.
+
 ### Price Tracker configuration options
 
 | Field | Default | Notes |
 | ----- | ------- | ----- |
-| ITAD API Key | *(empty)* | Optional |
+| ITAD API Key | *(empty)* | Optional — see table above |
 | Polling interval | 3 600 s (1 h) | Min 1 h, max 24 h |
 | Steam API Key | *(empty)* | Pre-filled if entered in Free Games step |
 | SteamID64 | *(empty)* | Pre-filled if entered in Free Games step |
@@ -276,9 +296,45 @@ action:
 
 ---
 
+## Services
+
+HA Gaming Hub registers two services you can call from **Developer Tools → Services**, automations, or scripts.
+
+### `ha_gaming_hub.add_to_watchlist`
+
+Searches for a game by title and adds it to the Price Tracker watchlist automatically. Requires the Price Tracker module to be enabled.
+
+| Field | Required | Description |
+| ----- | -------- | ----------- |
+| `title` | Yes | Game title to search for (e.g. `"Cyberpunk 2077"`) |
+
+```yaml
+action:
+  - service: ha_gaming_hub.add_to_watchlist
+    data:
+      title: "Cyberpunk 2077"
+```
+
+### `ha_gaming_hub.remove_from_watchlist`
+
+Removes a game from the watchlist by its slug. The slug is the hyphenated lowercase title (e.g. `cyberpunk-2077`). You can find it in the entity_id of any sensor for that game — HA converts hyphens to underscores, so `cyberpunk-2077` appears as `sensor.gaming_hub_cyberpunk_2077_best_price`.
+
+| Field | Required | Description |
+| ----- | -------- | ----------- |
+| `slug` | Yes | Game slug (e.g. `"cyberpunk-2077"`) |
+
+```yaml
+action:
+  - service: ha_gaming_hub.remove_from_watchlist
+    data:
+      slug: "cyberpunk-2077"
+```
+
+---
+
 ## Presence Module
 
-Shows the online and gaming status of Steam and Xbox accounts in real time.
+Shows the online and gaming status of Steam, Xbox and PlayStation Network accounts in real time.
 
 ### Steam setup (optional)
 
@@ -313,31 +369,56 @@ Xbox support reads data from the **official Home Assistant Xbox integration** �
 
 During Presence setup, after the Steam step, detected Xbox accounts are listed for selection. If the Xbox integration is not installed, this step is skipped automatically.
 
+### PlayStation Network (PSN) setup
+
+PSN support reads data from the **official Home Assistant PlayStation Network integration** — no extra credentials needed.
+
+#### Step 1 — Install the native PSN integration
+
+1. **Settings → Integrations → Add Integration → PlayStation Network**
+2. Complete the OAuth flow
+3. The integration creates `sensor.<username>_online_status` and `sensor.<username>_now_playing` entities automatically
+
+#### Step 2 — Link PSN in HA Gaming Hub
+
+During Presence setup, after the Xbox step, detected PSN accounts are listed for selection. If the PSN integration is not installed, this step is skipped automatically.
+
 ### Presence entities
+
+Entity IDs follow a platform-prefixed pattern: `steam_`, `xbox_`, or `psn_` followed by the account identifier.
 
 #### Per Steam account
 
 | Entity | Type | Description |
 | ------ | ---- | ----------- |
-| `binary_sensor.gaming_hub_<steamid>_online` | Binary Sensor | `on` when online (any state except Offline) |
-| `sensor.gaming_hub_<steamid>_playing` | Sensor | Current game, or `—` if idle |
-| `sensor.gaming_hub_<steamid>_status` | Sensor | Detailed status: `Online`, `Away`, `Busy`, `Snooze`, etc. |
-| `sensor.gaming_hub_<steamid>_hours_recent` | Sensor | Hours played in the last 2 weeks |
+| `binary_sensor.gaming_hub_steam_<steamid>_online` | Binary Sensor | `on` when online (any state except Offline) |
+| `sensor.gaming_hub_steam_<steamid>_playing` | Sensor | Current game, or `None` if idle |
+| `sensor.gaming_hub_steam_<steamid>_hours_recent` | Sensor | Hours played in the last 2 weeks |
+| `sensor.gaming_hub_steam_<steamid>_session_duration` | Sensor | Minutes in the current play session. `None` when not playing. Attributes: `game`, `started_at` |
 
 #### Per Xbox account
 
 | Entity | Type | Description |
 | ------ | ---- | ----------- |
-| `binary_sensor.gaming_hub_<gamertag>_online` | Binary Sensor | `on` when active on Xbox Live |
-| `sensor.gaming_hub_<gamertag>_playing` | Sensor | Current game or activity, or `—` if idle |
+| `binary_sensor.gaming_hub_xbox_<gamertag>_online` | Binary Sensor | `on` when active on Xbox Live |
+| `sensor.gaming_hub_xbox_<gamertag>_playing` | Sensor | Current game or activity, or `None` if idle |
+| `sensor.gaming_hub_xbox_<gamertag>_session_duration` | Sensor | Minutes in the current play session. `None` when not playing. Attributes: `game`, `started_at` |
+
+#### Per PSN account
+
+| Entity | Type | Description |
+| ------ | ---- | ----------- |
+| `binary_sensor.gaming_hub_psn_<username>_online` | Binary Sensor | `on` when online (any status other than offline) |
+| `sensor.gaming_hub_psn_<username>_playing` | Sensor | Current game, or `None` if idle |
+| `sensor.gaming_hub_psn_<username>_session_duration` | Sensor | Minutes in the current play session. `None` when not playing. Attributes: `game`, `started_at` |
 
 #### Aggregate
 
 | Entity | Type | Description |
 | ------ | ---- | ----------- |
-| `binary_sensor.gaming_hub_someone_is_gaming` | Binary Sensor | `on` when **any** tracked account is actively playing |
+| `binary_sensor.gaming_hub_someone_is_gaming` | Binary Sensor | `on` when **any** tracked account (Steam, Xbox or PSN) is actively playing |
 
-### Example automations
+### Example automation — scene trigger
 
 ```yaml
 # Turn on a light scene when someone starts gaming
@@ -351,19 +432,6 @@ action:
     data:
       group_name: Living Room
       scene_name: Gaming
-
-# Notify when a friend comes online
-alias: Friend online
-trigger:
-  - platform: state
-    entity_id: binary_sensor.gaming_hub_76561198XXXXXXXXX_online
-    to: "on"
-action:
-  - service: notify.mobile_app_your_phone
-    data:
-      message: >
-        {{ states('sensor.gaming_hub_76561198XXXXXXXXX_status') }} —
-        {{ states('sensor.gaming_hub_76561198XXXXXXXXX_playing') }}
 ```
 
 ---
@@ -377,9 +445,11 @@ The integration fires HA events whenever something notable changes. Use them as 
 | `ha_gaming_hub_free_game_added` | A new free game appears | `title`, `store`, `end_date`, `url`, `in_steam_wishlist` |
 | `ha_gaming_hub_deal_found` | A tracked game goes on sale | `title`, `best_price`, `best_store`, `discount_pct`, `in_steam_wishlist` |
 | `ha_gaming_hub_historical_low` | A tracked game hits its all-time low price | `title`, `best_price`, `best_store`, `in_steam_wishlist` |
-| `ha_gaming_hub_friend_online` | A Steam or Xbox friend comes online | `platform`, `name`, `playing` |
+| `ha_gaming_hub_friend_online` | A Steam, Xbox or PSN friend comes online | `platform`, `name`, `playing` |
+| `ha_gaming_hub_session_started` | An account starts playing a game | `platform`, `name`, `game` |
+| `ha_gaming_hub_session_ended` | An account stops playing | `platform`, `name`, `game`, `duration_minutes` |
 
-Events are **not** fired on the first HA startup — only on subsequent changes.
+Events are **not** fired on the first HA startup — only on subsequent changes. Session duration resets on HA restart.
 
 ### Example: notify on new wishlist deal
 
@@ -437,14 +507,30 @@ action:
         {% endif %}
 ```
 
+### Example: notify on gaming session end
+
+```yaml
+alias: Session ended
+trigger:
+  - platform: event
+    event_type: ha_gaming_hub_session_ended
+action:
+  - service: notify.mobile_app_your_phone
+    data:
+      title: "{{ trigger.event.data.name }} finished gaming"
+      message: >
+        Played {{ trigger.event.data.game }}
+        for {{ trigger.event.data.duration_minutes }} minutes.
+```
+
 ---
 
 ## Helper Sensors
 
-| Entity | Description |
-| ------ | ----------- |
-| `sensor.gaming_hub_next_free_game_expiry` | Timestamp of the next free game expiry. Use with `device_class: timestamp` — HA displays it as "in X hours". Attributes: `title`, `store`, `url` of the soonest-expiring game. |
-| `sensor.gaming_hub_wishlist_games_on_sale` | Count of Price Tracker games that are **both** in your Steam wishlist and currently on sale. The `on_sale` attribute lists them in Nintendo Wishlist Card format. |
+| Entity | Module required | Description |
+| ------ | --------------- | ----------- |
+| `sensor.gaming_hub_next_free_game_expiry` | Free Games | Timestamp of the next free game expiry. HA displays it as "in X hours". Attributes: `title`, `store`, `url` of the soonest-expiring game. |
+| `sensor.gaming_hub_wishlist_games_on_sale` | Price Tracker | Count of watchlist games that are **both** in your Steam wishlist and currently on sale. The `on_sale` attribute lists them in Nintendo Wishlist Card format. |
 
 ### Dashboard card — wishlist deals only
 
@@ -463,7 +549,8 @@ title: Wishlist On Sale
 > - **New free game alert** — notify when a new game is available for free
 > - **Wishlist deal alert** — notify when a wishlisted game goes on sale
 > - **Historical low alert** — notify when a tracked game hits its all-time low
-> - **Friend online** — trigger a scene or notify when a friend comes online on Steam or Xbox
+> - **Friend online** — trigger a scene or notify when a friend comes online on Steam, Xbox or PSN
+> - **Session ended** — log or notify when a gaming session ends with duration
 
 ---
 
@@ -475,4 +562,5 @@ title: Wishlist On Sale
 | 1 | Free Games module | ✅ Done |
 | 2 | Price Tracker module | ✅ Done |
 | 3 | Presence module (Steam + Xbox) | ✅ Done |
-| 4 | Events, helper sensors & automation blueprints | 🔄 In progress |
+| 4 | Events, helper sensors & reconfigure | ✅ Done |
+| 5 | PSN presence, score/cost-per-hour sensors, services, deals calendar, session tracking | ✅ Done |

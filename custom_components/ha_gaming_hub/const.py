@@ -17,6 +17,7 @@ CONF_STEAM_API_KEY = "steam_api_key"
 CONF_STEAM_IDS = "steam_ids"
 CONF_STEAM_WISHLIST_ID = "steam_wishlist_id"
 CONF_XBOX_ACCOUNTS = "xbox_accounts"
+CONF_PSN_ACCOUNTS = "psn_accounts"
 
 # Default polling intervals (seconds)
 DEFAULT_SCAN_INTERVAL_FREE_GAMES = 3600
@@ -33,8 +34,14 @@ STEAM_API_URL = "https://api.steampowered.com"
 # Entity name prefixes
 ENTITY_PREFIX = "gaming_hub"
 
+# Free game expiry warning
+DEFAULT_EXPIRY_WARNING_HOURS = 24
+CONF_EXPIRY_WARNING_HOURS = "expiry_warning_hours"
+
 # Events
 EVENT_FREE_GAME_ADDED = "ha_gaming_hub_free_game_added"
 EVENT_DEAL_FOUND = "ha_gaming_hub_deal_found"
 EVENT_HISTORICAL_LOW = "ha_gaming_hub_historical_low"
 EVENT_FRIEND_ONLINE = "ha_gaming_hub_friend_online"
+EVENT_SESSION_STARTED = "ha_gaming_hub_session_started"
+EVENT_SESSION_ENDED = "ha_gaming_hub_session_ended"

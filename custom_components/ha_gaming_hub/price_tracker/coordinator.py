@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from datetime import datetime, timezone
 from typing import Callable
 
 from homeassistant.core import HomeAssistant
@@ -9,6 +10,7 @@ from ..coordinator import GamingHubCoordinator
 from ..const import DEFAULT_SCAN_INTERVAL_PRICE_TRACKER, EVENT_DEAL_FOUND, EVENT_HISTORICAL_LOW
 from . import STORAGE_KEY, STORAGE_VERSION, load_watchlist, add_game_to_watchlist, remove_game_from_watchlist, _slugify
 from .cheapshark import CheapSharkClient
+from .hltb import search_hltb
 from .itad import ITADClient
 
 _LOGGER = logging.getLogger(__name__)
@@ -44,6 +46,8 @@ class PriceTrackerCoordinator(GamingHubCoordinator):
         self._prev_sale_state: dict[str, bool] = {}
         self._prev_low_state: dict[str, bool] = {}
         self._initial_refresh_done: bool = False
+        self._score_cache: dict[str, dict] = {}
+        self._hltb_cache: dict[str, dict | None] = {}
 
     def register_sensor_callbacks(
         self, on_add: Callable, on_remove: Callable
@@ -113,9 +117,43 @@ class PriceTrackerCoordinator(GamingHubCoordinator):
             except Exception as err:
                 _LOGGER.warning("ITAD batch price fetch failed: %s", err)
 
+        uncached_ids = [gid for gid in itad_ids if gid not in self._score_cache]
+        if uncached_ids:
+            try:
+                info_data = await self.itad.get_game_info_batch(uncached_ids)
+                for gid, info in info_data.items():
+                    mc = (info.get("reviews") or {}).get("metacritic") or {}
+                    oc = (info.get("reviews") or {}).get("opencritic") or {}
+                    self._score_cache[gid] = {
+                        "score": mc.get("score"),
+                        "metacritic_url": mc.get("url", ""),
+                        "opencritic_score": oc.get("score"),
+                        "opencritic_url": oc.get("url", ""),
+                    }
+                for gid in uncached_ids:
+                    self._score_cache.setdefault(gid, {})
+            except Exception as err:
+                _LOGGER.warning("ITAD game info fetch failed: %s", err)
+
+        uncached_hltb = [g for g in self.watchlist if g["slug"] not in self._hltb_cache]
+        for game in uncached_hltb:
+            self._hltb_cache[game["slug"]] = await search_hltb(game["title"])
+
         result: dict[str, dict] = {}
         for game, cs_result in zip(self.watchlist, cs_results):
             slug = game["slug"]
+            score_info = self._score_cache.get(game.get("itad_id", ""), {})
+            hltb_info = self._hltb_cache.get(slug) or {}
+            itad_info = itad_data.get(game.get("itad_id", ""), {})
+            deal_end_date: datetime | None = None
+            expiry_str = itad_info.get("expiry")
+            if expiry_str:
+                try:
+                    deal_end_date = datetime.fromisoformat(
+                        expiry_str.replace("Z", "+00:00")
+                    )
+                except (ValueError, AttributeError):
+                    pass
             entry: dict = {
                 "title": game["title"],
                 "best_price": None,
@@ -126,6 +164,14 @@ class PriceTrackerCoordinator(GamingHubCoordinator):
                 "in_steam_wishlist": False,
                 "thumb": None,
                 "retail_price": None,
+                "score": score_info.get("score"),
+                "metacritic_url": score_info.get("metacritic_url", ""),
+                "opencritic_score": score_info.get("opencritic_score"),
+                "opencritic_url": score_info.get("opencritic_url", ""),
+                "hours_main": hltb_info.get("hours_main"),
+                "hours_extra": hltb_info.get("hours_extra"),
+                "hours_completionist": hltb_info.get("hours_completionist"),
+                "deal_end_date": deal_end_date,
             }
 
             if isinstance(cs_result, dict) and cs_result:

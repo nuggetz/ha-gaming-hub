@@ -1,10 +1,11 @@
 import asyncio
 import logging
+from datetime import datetime, timezone
 
 from homeassistant.core import HomeAssistant
 
 from ..coordinator import GamingHubCoordinator
-from ..const import EVENT_FRIEND_ONLINE
+from ..const import EVENT_FRIEND_ONLINE, EVENT_SESSION_STARTED, EVENT_SESSION_ENDED
 from .steam import SteamClient
 
 _LOGGER = logging.getLogger(__name__)
@@ -20,6 +21,7 @@ class PresenceCoordinator(GamingHubCoordinator):
         steam_api_key: str,
         steam_ids: list[str],
         xbox_accounts: list[dict],
+        psn_accounts: list[str] | None = None,
     ) -> None:
         super().__init__(
             hass,
@@ -29,11 +31,14 @@ class PresenceCoordinator(GamingHubCoordinator):
         )
         self.steam_ids = steam_ids
         self.xbox_accounts = xbox_accounts
+        self.psn_accounts: list[str] = psn_accounts or []
 
         self._steam: SteamClient | None = (
             SteamClient(session, steam_api_key) if steam_api_key and steam_ids else None
         )
         self._prev_online: dict[str, bool] = {}
+        self._prev_playing: dict[str, str | None] = {}
+        self._session_start: dict[str, datetime | None] = {}
         self._initial_refresh_done: bool = False
 
     async def _async_update_data(self) -> dict:
@@ -89,17 +94,75 @@ class PresenceCoordinator(GamingHubCoordinator):
                 "playing": playing,
             }
 
+        for psn_slug in self.psn_accounts:
+            online_state = self.hass.states.get(f"sensor.{psn_slug}_online_status")
+            playing_state = self.hass.states.get(f"sensor.{psn_slug}_now_playing")
+
+            online = (
+                online_state is not None
+                and online_state.state not in ("offline", "unavailable", "unknown", "")
+            )
+            playing: str | None = None
+            if playing_state and playing_state.state not in (
+                "", "unavailable", "unknown", "None", "none"
+            ):
+                playing = playing_state.state
+
+            display_name = psn_slug.replace("_", " ").title()
+            accounts[f"psn_{psn_slug}"] = {
+                "platform": "PSN",
+                "name": display_name,
+                "online": online,
+                "playing": playing,
+            }
+
+        now = datetime.now(tz=timezone.utc)
+
         if self._initial_refresh_done:
             for key, acc in accounts.items():
+                name = acc.get("name") or acc.get("gamertag") or key
+                platform = acc.get("platform", "")
+                curr_playing = acc.get("playing")
+                prev_playing = self._prev_playing.get(key)
+
                 if acc.get("online") and not self._prev_online.get(key, False):
                     self.hass.bus.async_fire(EVENT_FRIEND_ONLINE, {
-                        "platform": acc.get("platform", ""),
-                        "name": acc.get("name") or acc.get("gamertag") or key,
-                        "playing": acc.get("playing"),
+                        "platform": platform,
+                        "name": name,
+                        "playing": curr_playing,
                     })
+
+                if curr_playing and not prev_playing:
+                    self._session_start[key] = now
+                    self.hass.bus.async_fire(EVENT_SESSION_STARTED, {
+                        "platform": platform,
+                        "name": name,
+                        "game": curr_playing,
+                    })
+                elif not curr_playing and prev_playing:
+                    start = self._session_start.get(key)
+                    duration_min = int((now - start).total_seconds() / 60) if start else 0
+                    self.hass.bus.async_fire(EVENT_SESSION_ENDED, {
+                        "platform": platform,
+                        "name": name,
+                        "game": prev_playing,
+                        "duration_minutes": duration_min,
+                    })
+                    self._session_start[key] = None
+                elif curr_playing and self._session_start.get(key) is None:
+                    # Missed the start transition (e.g. stale state at startup)
+                    self._session_start[key] = now
         else:
             self._initial_refresh_done = True
+            for key, acc in accounts.items():
+                if acc.get("playing"):
+                    self._session_start[key] = now
+
         self._prev_online = {key: bool(acc.get("online")) for key, acc in accounts.items()}
+        self._prev_playing = {key: acc.get("playing") for key, acc in accounts.items()}
+
+        for key, acc in accounts.items():
+            acc["session_start"] = self._session_start.get(key)
 
         someone_is_gaming = any(bool(acc.get("playing")) for acc in accounts.values())
         return {"accounts": accounts, "someone_is_gaming": someone_is_gaming}

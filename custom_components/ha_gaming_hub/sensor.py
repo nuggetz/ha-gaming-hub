@@ -46,7 +46,7 @@ async def async_setup_entry(
 
         def on_game_removed(slug: str) -> None:
             ent_reg = er.async_get(hass)
-            for sensor_type in ["best_price", "best_store", "discount_pct"]:
+            for sensor_type in ["best_price", "best_store", "discount_pct", "score", "cost_per_hour"]:
                 uid = f"gaming_hub_{slug}_{sensor_type}"
                 entity_id = ent_reg.async_get_entity_id("sensor", DOMAIN, uid)
                 if entity_id:
@@ -69,6 +69,7 @@ async def async_setup_entry(
             platform = acc.get("platform", "")
             name = acc.get("name") or acc.get("gamertag") or account_key
             entities.append(AccountPlayingSensor(coordinator, entry.entry_id, account_key, name, platform))
+            entities.append(SessionDurationSensor(coordinator, entry.entry_id, account_key, name, platform))
             if platform == "Steam":
                 entities.append(SteamHoursRecentSensor(coordinator, entry.entry_id, account_key, name))
 
@@ -90,6 +91,8 @@ def _price_tracker_sensors(coordinator, entry_id: str, game: dict) -> list:
         GameBestPriceSensor(coordinator, entry_id, slug, title),
         GameBestStoreSensor(coordinator, entry_id, slug, title),
         GameDiscountSensor(coordinator, entry_id, slug, title),
+        GameScoreSensor(coordinator, entry_id, slug, title),
+        GameCostPerHourSensor(coordinator, entry_id, slug, title),
     ]
 
 
@@ -194,7 +197,7 @@ class _GameBaseSensor(CoordinatorEntity, SensorEntity):
 
 class GameBestPriceSensor(_GameBaseSensor):
     _attr_icon = "mdi:tag"
-    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_state_class = SensorStateClass.TOTAL
     _attr_device_class = SensorDeviceClass.MONETARY
     _attr_native_unit_of_measurement = "USD"
 
@@ -230,6 +233,30 @@ class GameBestStoreSensor(_GameBaseSensor):
         return self._game_data().get("best_store")
 
 
+class GameScoreSensor(_GameBaseSensor):
+    _attr_icon = "mdi:star-circle"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = "points"
+
+    def __init__(self, coordinator, entry_id: str, slug: str, title: str) -> None:
+        super().__init__(coordinator, entry_id, slug, title)
+        self._attr_name = f"{title} Score"
+        self._attr_unique_id = f"gaming_hub_{slug}_score"
+
+    @property
+    def native_value(self) -> int | None:
+        return self._game_data().get("score")
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        d = self._game_data()
+        attrs = {"metacritic_url": d.get("metacritic_url", "")}
+        if d.get("opencritic_score") is not None:
+            attrs["opencritic_score"] = d["opencritic_score"]
+            attrs["opencritic_url"] = d.get("opencritic_url", "")
+        return attrs
+
+
 class GameDiscountSensor(_GameBaseSensor):
     _attr_icon = "mdi:percent"
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -243,6 +270,35 @@ class GameDiscountSensor(_GameBaseSensor):
     @property
     def native_value(self) -> float:
         return self._game_data().get("discount_pct", 0.0)
+
+
+class GameCostPerHourSensor(_GameBaseSensor):
+    _attr_icon = "mdi:clock-dollar"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = "USD/h"
+
+    def __init__(self, coordinator, entry_id: str, slug: str, title: str) -> None:
+        super().__init__(coordinator, entry_id, slug, title)
+        self._attr_name = f"{title} Cost Per Hour"
+        self._attr_unique_id = f"gaming_hub_{slug}_cost_per_hour"
+
+    @property
+    def native_value(self) -> float | None:
+        d = self._game_data()
+        price = d.get("best_price")
+        hours = d.get("hours_main")
+        if price is None or not hours:
+            return None
+        return round(price / hours, 2)
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        d = self._game_data()
+        return {
+            "hours_main": d.get("hours_main"),
+            "hours_extra": d.get("hours_extra"),
+            "hours_completionist": d.get("hours_completionist"),
+        }
 
 
 class PriceTrackerDealsSensor(CoordinatorEntity, SensorEntity):
@@ -304,7 +360,7 @@ class GamingHubDealsSensor(SensorEntity):
     """
 
     _attr_has_entity_name = True
-    _attr_name = "Gaming Hub Deals"
+    _attr_name = "Deals"
     _attr_unique_id = "gaming_hub_deals"
     _attr_icon = "mdi:tag-multiple-outline"
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -477,8 +533,12 @@ class AccountPlayingSensor(_AccountBaseSensor):
 
     def __init__(self, coordinator, entry_id: str, account_key: str, name: str, platform: str) -> None:
         super().__init__(coordinator, entry_id, account_key, name, platform)
-        icon = "mdi:steam" if platform == "Steam" else "mdi:microsoft-xbox"
-        self._attr_icon = icon
+        if platform == "Steam":
+            self._attr_icon = "mdi:steam"
+        elif platform == "PSN":
+            self._attr_icon = "mdi:sony-playstation"
+        else:
+            self._attr_icon = "mdi:microsoft-xbox"
         self._attr_name = f"{name} Playing"
         self._attr_unique_id = f"gaming_hub_{account_key}_playing"
 
@@ -500,3 +560,31 @@ class SteamHoursRecentSensor(_AccountBaseSensor):
     @property
     def native_value(self) -> float | None:
         return self._account_data().get("hours_recent")
+
+
+class SessionDurationSensor(_AccountBaseSensor):
+    _attr_icon = "mdi:clock-play"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = "min"
+
+    def __init__(self, coordinator, entry_id: str, account_key: str, name: str, platform: str) -> None:
+        super().__init__(coordinator, entry_id, account_key, name, platform)
+        self._attr_name = f"{name} Session Duration"
+        self._attr_unique_id = f"gaming_hub_{account_key}_session_duration"
+
+    @property
+    def native_value(self) -> int | None:
+        session_start = self._account_data().get("session_start")
+        if session_start is None:
+            return None
+        from datetime import datetime
+        return int((datetime.now(tz=timezone.utc) - session_start).total_seconds() / 60)
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        data = self._account_data()
+        attrs: dict = {"game": data.get("playing")}
+        session_start = data.get("session_start")
+        if session_start:
+            attrs["started_at"] = session_start.isoformat()
+        return attrs
