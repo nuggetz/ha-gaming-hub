@@ -4,7 +4,7 @@
 
 A HACS custom integration for Home Assistant that brings gaming data into your smart home.
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
+[![hacs_badge](https://img.shields.io/badge/HACS-Default-41BDF5.svg)](https://github.com/hacs/integration)
 [![License: MIT](https://img.shields.io/github/license/nuggetz/ha-gaming-hub)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/nuggetz/ha-gaming-hub?display_name=tag)](https://github.com/nuggetz/ha-gaming-hub/releases)
 [![Issues](https://img.shields.io/github/issues/nuggetz/ha-gaming-hub)](https://github.com/nuggetz/ha-gaming-hub/issues)
@@ -27,12 +27,11 @@ You can enable any combination of modules during setup. Each module is independe
 ## Installation
 
 1. Make sure [HACS](https://hacs.xyz) is installed in your Home Assistant instance.
-2. In HACS, go to **Integrations** → click the three-dot menu → **Custom repositories**.
-3. Add `https://github.com/nuggetz/ha-gaming-hub` as an **Integration**.
-4. Search for **HA Gaming Hub** and install it.
-5. Restart Home Assistant.
-6. Go to **Settings → Integrations → Add Integration** and search for **HA Gaming Hub**.
-7. Follow the setup wizard to select and configure your modules.
+2. In HACS, go to **Integrations** and search for **HA Gaming Hub**.
+3. Click **Download** and install it.
+4. Restart Home Assistant.
+5. Go to **Settings → Integrations → Add Integration** and search for **HA Gaming Hub**.
+6. Follow the setup wizard to select and configure your modules.
 
 > **Tip:** you can change any setting (modules, API keys, Steam IDs, Xbox accounts) at any time via **Settings → Integrations → HA Gaming Hub → ⋮ → Reconfigure**.
 
