@@ -30,7 +30,12 @@ secrets.yaml
 .idea/
 *.swp
 *.swo
+*.code-workspace
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Claude Related
+.claude/
+CLAUDE.md
