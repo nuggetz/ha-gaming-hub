@@ -12,5 +12,5 @@
     "howlongtobeatpy>=1.0.0",
     "xbox-webapi>=2.0.9"
   ],
-  "version": "0.1.0"
+  "version": "0.3.0"
 }

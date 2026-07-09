@@ -6,6 +6,7 @@ from homeassistant.core import HomeAssistant
 
 from ..coordinator import GamingHubCoordinator
 from ..const import EVENT_FRIEND_ONLINE, EVENT_SESSION_STARTED, EVENT_SESSION_ENDED
+from .discovery import xbox_now_playing_from_device
 from .steam import SteamClient
 
 _LOGGER = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ class PresenceCoordinator(GamingHubCoordinator):
         steam_api_key: str,
         steam_ids: list[str],
         xbox_accounts: list[dict],
-        psn_accounts: list[str] | None = None,
+        psn_accounts: list[dict] | None = None,
     ) -> None:
         super().__init__(
             hass,
@@ -31,7 +32,9 @@ class PresenceCoordinator(GamingHubCoordinator):
         )
         self.steam_ids = steam_ids
         self.xbox_accounts = xbox_accounts
-        self.psn_accounts: list[str] = psn_accounts or []
+        # dicts ({slug, name, online_status, now_playing}); bare strings tolerated
+        # for configs saved before the localization fix.
+        self.psn_accounts: list[dict | str] = psn_accounts or []
 
         self._steam: SteamClient | None = (
             SteamClient(session, steam_api_key) if steam_api_key and steam_ids else None
@@ -76,16 +79,10 @@ class PresenceCoordinator(GamingHubCoordinator):
                     or attrs.get("current_game")
                     or attrs.get("game")
                 )
-            if not playing:
-                for candidate in (
-                    f"sensor.{slug}_now_playing",
-                    f"sensor.{slug}_game",
-                    f"media_player.{slug}",
-                ):
-                    state = self.hass.states.get(candidate)
-                    if state and state.state not in ("", "unknown", "unavailable", "None", "none", "idle", "off"):
-                        playing = state.state
-                        break
+            if not playing and online_state is not None:
+                # Language-independent fallback: look for a media_player on the
+                # same device rather than guessing English entity_id suffixes.
+                playing = xbox_now_playing_from_device(self.hass, online_state.entity_id)
 
             accounts[f"xbox_{slug}"] = {
                 "platform": "Xbox",
@@ -94,9 +91,23 @@ class PresenceCoordinator(GamingHubCoordinator):
                 "playing": playing,
             }
 
-        for psn_slug in self.psn_accounts:
-            online_state = self.hass.states.get(f"sensor.{psn_slug}_online_status")
-            playing_state = self.hass.states.get(f"sensor.{psn_slug}_now_playing")
+        for account in self.psn_accounts:
+            if isinstance(account, dict):
+                # New format: resolved entity_ids stored at config time.
+                account_slug = account.get("slug") or ""
+                online_eid = account.get("online_status")
+                playing_eid = account.get("now_playing")
+                display_name = account.get("name") or account_slug.replace("_", " ").title()
+            else:
+                # Legacy format: a bare slug (English installs configured before
+                # the localization fix). Reconstruct the old entity_ids.
+                account_slug = account
+                online_eid = f"sensor.{account}_online_status"
+                playing_eid = f"sensor.{account}_now_playing"
+                display_name = account.replace("_", " ").title()
+
+            online_state = self.hass.states.get(online_eid) if online_eid else None
+            playing_state = self.hass.states.get(playing_eid) if playing_eid else None
 
             online = (
                 online_state is not None
@@ -108,8 +119,7 @@ class PresenceCoordinator(GamingHubCoordinator):
             ):
                 playing = playing_state.state
 
-            display_name = psn_slug.replace("_", " ").title()
-            accounts[f"psn_{psn_slug}"] = {
+            accounts[f"psn_{account_slug}"] = {
                 "platform": "PSN",
                 "name": display_name,
                 "online": online,

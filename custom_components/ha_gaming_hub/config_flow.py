@@ -7,6 +7,8 @@ from homeassistant.core import callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
+    EntitySelector,
+    EntitySelectorConfig,
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
@@ -17,6 +19,8 @@ from homeassistant.helpers.selector import (
     TextSelectorConfig,
     TextSelectorType,
 )
+
+from .presence.discovery import PSN_INTEGRATION, resolve_psn_account
 
 from .const import (
     DOMAIN,
@@ -306,40 +310,43 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_psn_entity(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.FlowResult:
-        """Select PSN accounts to track from the native PlayStation Network integration."""
+        """Select PSN accounts to track from the native PlayStation Network integration.
+
+        The user picks one of the account's registry entities via an entity
+        selector; we then resolve the real online-status and now-playing sensor
+        entity_ids from that entity's device. This avoids reconstructing
+        entity_ids from a localized suffix, which breaks on non-English
+        Home Assistant instances.
+        """
         if user_input is not None:
-            self._data[CONF_PSN_ACCOUNTS] = user_input.get("psn_accounts", [])
+            selected = user_input.get("psn_accounts", [])
+            accounts: list[dict] = []
+            seen_slugs: set[str] = set()
+            for entity_id in selected:
+                account = resolve_psn_account(self.hass, entity_id)
+                if account and account["slug"] not in seen_slugs:
+                    seen_slugs.add(account["slug"])
+                    accounts.append(account)
+            self._data[CONF_PSN_ACCOUNTS] = accounts
             return await self.async_step_summary()
 
+        # Auto-skip if the native PlayStation Network integration is not installed
         ent_reg = er.async_get(self.hass)
-        psn_slugs: list[str] = []
-        seen: set[str] = set()
-        for entity in ent_reg.entities.values():
-            if (
-                entity.platform == "playstation_network"
-                and entity.domain == "sensor"
-                and entity.entity_id.endswith("_online_status")
-            ):
-                slug = entity.entity_id.removeprefix("sensor.").removesuffix("_online_status")
-                if slug and slug not in seen:
-                    seen.add(slug)
-                    psn_slugs.append(slug)
-
-        _LOGGER.debug("PSN detected slugs: %s", psn_slugs)
-
-        if not psn_slugs:
+        has_psn = any(
+            entity.platform == PSN_INTEGRATION for entity in ent_reg.entities.values()
+        )
+        if not has_psn:
             self._data[CONF_PSN_ACCOUNTS] = []
             return await self.async_step_summary()
 
-        options = [
-            {"value": s, "label": s.replace("_", " ").title()} for s in sorted(psn_slugs)
-        ]
         return self.async_show_form(
             step_id=STEP_PSN_ENTITY,
             data_schema=vol.Schema({
-                vol.Optional("psn_accounts", default=[]): SelectSelector(
-                    SelectSelectorConfig(
-                        options=options, multiple=True, mode=SelectSelectorMode.LIST
+                vol.Optional("psn_accounts", default=[]): EntitySelector(
+                    EntitySelectorConfig(
+                        integration=PSN_INTEGRATION,
+                        domain="sensor",
+                        multiple=True,
                     )
                 ),
             }),
@@ -390,7 +397,11 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if MODULE_PRESENCE in modules:
             xbox_summary = ", ".join(a["gamertag"] for a in xbox_accounts) if xbox_accounts else "none"
-            psn_summary = ", ".join(psn_accounts) if psn_accounts else "none"
+            # PSN accounts are dicts ({name, ...}); tolerate the legacy list-of-str format too.
+            psn_names = [
+                a["name"] if isinstance(a, dict) else str(a) for a in psn_accounts
+            ]
+            psn_summary = ", ".join(psn_names) if psn_names else "none"
         else:
             xbox_summary = "—"
             psn_summary = "—"

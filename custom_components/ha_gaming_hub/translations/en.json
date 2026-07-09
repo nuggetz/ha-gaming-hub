@@ -44,9 +44,9 @@
       },
       "psn_entity": {
         "title": "Presence — PlayStation Network Accounts",
-        "description": "The following PSN accounts were detected from the native PlayStation Network integration. Select which ones to track.\n\nIf nothing appears here, make sure the PlayStation Network integration is installed and configured first.",
+        "description": "Select a sensor for each PlayStation Network account you want to track (any sensor of the account works — its online-status and now-playing sensors are resolved automatically).\n\nIf nothing appears here, make sure the PlayStation Network integration is installed and configured first.",
         "data": {
-          "psn_accounts": "PSN accounts to track"
+          "psn_accounts": "PSN account sensors to track"
         }
       },
       "summary": {

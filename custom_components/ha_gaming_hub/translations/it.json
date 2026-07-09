@@ -42,9 +42,16 @@
           "xbox_accounts": "Account Xbox da monitorare"
         }
       },
+      "psn_entity": {
+        "title": "Presence — Account PlayStation Network",
+        "description": "Seleziona un sensore per ciascun account PlayStation Network da monitorare (va bene qualsiasi sensore dell'account: i suoi sensori di stato online e gioco in corso vengono risolti automaticamente).\n\nSe non compare nulla, assicurati che l'integrazione PlayStation Network sia installata e configurata.",
+        "data": {
+          "psn_accounts": "Sensori degli account PSN da monitorare"
+        }
+      },
       "summary": {
         "title": "Riepilogo configurazione",
-        "description": "Moduli: {modules}\nChiave IsThereAnyDeal: {itad_key}\nChiave Steam: {steam_key}\nSteamID64 Wishlist: {steam_wishlist_id}\nAccount Xbox: {xbox_accounts}\n\nClicca Invia per salvare.",
+        "description": "Moduli: {modules}\nChiave IsThereAnyDeal: {itad_key}\nChiave Steam: {steam_key}\nSteamID64 Wishlist: {steam_wishlist_id}\nAccount Xbox: {xbox_accounts}\nAccount PSN: {psn_accounts}\n\nClicca Invia per salvare.",
         "data": {}
       },
       "reconfigure": {
