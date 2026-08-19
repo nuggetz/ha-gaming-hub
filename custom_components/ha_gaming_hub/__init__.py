@@ -15,6 +15,8 @@ from .const import (
     CONF_STEAM_WISHLIST_ID,
     CONF_XBOX_ACCOUNTS,
     CONF_PSN_ACCOUNTS,
+    CONF_FREE_GAMES_TYPES,
+    DEFAULT_FREE_GAMES_TYPES,
     MODULE_FREE_GAMES,
     MODULE_PRICE_TRACKER,
     MODULE_PRESENCE,
@@ -56,7 +58,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         scan_interval = entry.data.get("scan_interval_free_games", DEFAULT_SCAN_INTERVAL_FREE_GAMES)
         steam_wishlist_id = entry.data.get(CONF_STEAM_WISHLIST_ID) or None
         steam_api_key = entry.data.get(CONF_STEAM_API_KEY) or None
-        coordinator = FreeGamesCoordinator(hass, session, int(scan_interval), steam_wishlist_id, steam_api_key)
+        included_types = entry.data.get(CONF_FREE_GAMES_TYPES) or DEFAULT_FREE_GAMES_TYPES
+        coordinator = FreeGamesCoordinator(
+            hass, session, int(scan_interval), steam_wishlist_id, steam_api_key, included_types
+        )
         await coordinator.async_config_entry_first_refresh()
         coordinators[MODULE_FREE_GAMES] = coordinator
 

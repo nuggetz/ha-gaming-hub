@@ -9,7 +9,12 @@ from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from ..coordinator import GamingHubCoordinator
-from ..const import DEFAULT_SCAN_INTERVAL_FREE_GAMES, STEAM_API_URL, EVENT_FREE_GAME_ADDED
+from ..const import (
+    DEFAULT_SCAN_INTERVAL_FREE_GAMES,
+    DEFAULT_FREE_GAMES_TYPES,
+    STEAM_API_URL,
+    EVENT_FREE_GAME_ADDED,
+)
 
 from .epic import EpicClient
 from .gamerpower import GamerPowerClient
@@ -62,6 +67,7 @@ class FreeGamesCoordinator(GamingHubCoordinator):
         scan_interval: int = DEFAULT_SCAN_INTERVAL_FREE_GAMES,
         steam_wishlist_id: str | None = None,
         steam_api_key: str | None = None,
+        included_types: list[str] | None = None,
     ):
         super().__init__(
             hass,
@@ -73,6 +79,7 @@ class FreeGamesCoordinator(GamingHubCoordinator):
         self.gamerpower_client = GamerPowerClient(session)
         self._steam_wishlist_id = steam_wishlist_id
         self._steam_api_key = steam_api_key
+        self._included_types = set(included_types or DEFAULT_FREE_GAMES_TYPES)
         self._wishlist_appids: set[str] = set()
         self._wishlist_titles: set[str] = set()
         self._wishlist_unsub: Callable | None = None
@@ -222,6 +229,11 @@ class FreeGamesCoordinator(GamingHubCoordinator):
 
         all_games = _merge_games(epic_games, gamerpower_games)
 
+        # GamerPower returns every PC giveaway, and the large majority are DLC or
+        # loot key drops rather than free games. Without this filter the module
+        # reports ~100 "free games" of which only a handful actually are.
+        all_games = [g for g in all_games if g.get("type") in self._included_types]
+
         now = datetime.now(tz=timezone.utc)
 
         def _in_wishlist(game: dict) -> bool:
@@ -240,6 +252,10 @@ class FreeGamesCoordinator(GamingHubCoordinator):
                 upcoming.append(game)
             elif game.get("end_date") is None or game["end_date"] > now:
                 current.append(game)
+
+        # Soonest expiry first, undated giveaways last: whatever consumes only the
+        # first N entries then keeps the ones that actually need attention.
+        current.sort(key=lambda g: (g.get("end_date") is None, g.get("end_date") or now))
 
         total_value = sum(
             g["worth"] for g in current if g.get("worth") is not None

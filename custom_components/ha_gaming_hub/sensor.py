@@ -1,3 +1,4 @@
+import json
 import logging
 from datetime import timezone
 
@@ -7,11 +8,67 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.json import json_bytes
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, MODULE_FREE_GAMES, MODULE_PRICE_TRACKER, MODULE_PRESENCE
+from .const import (
+    DOMAIN,
+    MODULE_FREE_GAMES,
+    MODULE_PRICE_TRACKER,
+    MODULE_PRESENCE,
+    CONF_FREE_GAMES_MAX_ITEMS,
+    DEFAULT_FREE_GAMES_MAX_ITEMS,
+    MAX_STATE_ATTRS_BYTES,
+)
 
 _LOGGER = logging.getLogger(__name__)
+
+# The recorder measures the *full* attribute dict, which includes the
+# friendly_name/icon/device_class/state_class that HA appends on top of whatever
+# extra_state_attributes returns. Aim below the cap rather than at it.
+_ATTRS_BUDGET = MAX_STATE_ATTRS_BYTES - 512
+
+
+def _attrs_size(attrs: dict) -> int:
+    """Serialised size in bytes, measured the same way the recorder measures it."""
+    try:
+        return len(json_bytes(attrs))
+    except (TypeError, ValueError):
+        return len(json.dumps(attrs, default=str).encode())
+
+
+def _fit_attributes(attrs: dict, list_keys: tuple[str, ...], entity_name: str) -> dict:
+    """Trim list attributes until the payload fits under the recorder's limit.
+
+    Above MAX_STATE_ATTRS_BYTES the recorder stores *no* attributes at all for the
+    state, so the entities carrying a payload are exactly the ones that lose their
+    history. Dropping the tail keeps the rest recoverable. Lists are pre-sorted by
+    relevance (soonest expiry first), so the tail is the cheapest thing to lose.
+    """
+    if _attrs_size(attrs) <= _ATTRS_BUDGET:
+        return attrs
+
+    trimmed = {k: (list(v) if k in list_keys and isinstance(v, list) else v) for k, v in attrs.items()}
+    lists = [k for k in list_keys if isinstance(trimmed.get(k), list)]
+    dropped = 0
+
+    while _attrs_size(trimmed) > _ATTRS_BUDGET:
+        # Always shrink the longest list; never empty one out completely, since a
+        # bare header row is still meaningful to the cards that read it.
+        longest = max(lists, key=lambda k: len(trimmed[k]), default=None)
+        if longest is None or len(trimmed[longest]) <= 1:
+            break
+        trimmed[longest].pop()
+        dropped += 1
+
+    _LOGGER.debug(
+        "%s: attributes exceeded %d bytes, dropped %d entries to fit (now %d bytes)",
+        entity_name,
+        _ATTRS_BUDGET,
+        dropped,
+        _attrs_size(trimmed),
+    )
+    return trimmed
 
 
 async def async_setup_entry(
@@ -21,13 +78,14 @@ async def async_setup_entry(
 ) -> None:
     entry_data = hass.data[DOMAIN][entry.entry_id]
     coordinators = entry_data["coordinators"]
+    max_items = int(entry.data.get(CONF_FREE_GAMES_MAX_ITEMS, DEFAULT_FREE_GAMES_MAX_ITEMS))
 
     entities = []
 
     if MODULE_FREE_GAMES in coordinators:
         coordinator = coordinators[MODULE_FREE_GAMES]
         entities.extend([
-            FreeGamesCountSensor(coordinator, entry.entry_id),
+            FreeGamesCountSensor(coordinator, entry.entry_id, max_items),
             FreeGamesValueSensor(coordinator, entry.entry_id),
         ])
 
@@ -57,7 +115,7 @@ async def async_setup_entry(
     fg_coord = coordinators.get(MODULE_FREE_GAMES)
     pt_coord = coordinators.get(MODULE_PRICE_TRACKER)
     if fg_coord or pt_coord:
-        entities.append(GamingHubDealsSensor(entry.entry_id, fg_coord, pt_coord))
+        entities.append(GamingHubDealsSensor(entry.entry_id, fg_coord, pt_coord, max_items))
     if fg_coord:
         entities.append(FreeGamesNextExpirySensor(fg_coord, entry.entry_id))
     if pt_coord:
@@ -84,6 +142,30 @@ def _device_info(entry_id: str) -> DeviceInfo:
     )
 
 
+def _nintendo_entry(
+    title: str,
+    image: str,
+    sale_price: str,
+    normal_price: str,
+    percent_off: int,
+) -> dict:
+    """One entry in nintendo-wishlist-card format.
+
+    No `backgroundart`: the card renders `box_art_url` and only tests backgroundart
+    for truthiness to pick a CSS background-position, never reading it as a URL.
+    None of our sources provide a wide image distinct from the cover, so the field
+    used to carry a duplicate of box_art_url — 28% of the payload for no
+    information. Add it back only if a source ever gives real background art.
+    """
+    return {
+        "title": title,
+        "box_art_url": image,
+        "sale_price": sale_price,
+        "normal_price": normal_price,
+        "percent_off": percent_off,
+    }
+
+
 def _price_tracker_sensors(coordinator, entry_id: str, game: dict) -> list:
     slug = game["slug"]
     title = game["title"]
@@ -107,9 +189,10 @@ class FreeGamesCountSensor(CoordinatorEntity, SensorEntity):
     _attr_icon = "mdi:gamepad-variant"
     _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, coordinator, entry_id: str) -> None:
+    def __init__(self, coordinator, entry_id: str, max_items: int = DEFAULT_FREE_GAMES_MAX_ITEMS) -> None:
         super().__init__(coordinator)
         self._attr_device_info = _device_info(entry_id)
+        self._max_items = max_items
 
     @property
     def native_value(self) -> int:
@@ -117,7 +200,7 @@ class FreeGamesCountSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict:
-        games = self.coordinator.data.get("current", [])
+        games = self.coordinator.data.get("current", [])[: self._max_items]
         header = {
             "title_default": "$title",
             "line1_default": "$rating",
@@ -132,33 +215,38 @@ class FreeGamesCountSensor(CoordinatorEntity, SensorEntity):
             end_dt = g.get("end_date")
             worth = g.get("worth")
             cover = g.get("cover", "")
+            poster = g.get("poster", cover)
             store = g.get("store", g.get("platform", ""))
             in_wishlist = g.get("in_steam_wishlist", False)
             wishlist_badge = "⭐ " if in_wishlist else ""
-            media_entries.append({
+            # upcoming-media-card reads `poster` (default image_style) and falls
+            # back to it when `fanart` is absent, so only send fanart when it is
+            # genuinely a different image. It never reads box_art_url at all.
+            media = {
                 "title": g.get("title", ""),
                 "rating": g.get("platform", ""),
                 "price": f"{wishlist_badge}FREE" + (f" (${worth:.2f} value)" if worth else ""),
                 "release": f"Expires {end_dt.strftime('%-d %b %Y')}" if end_dt else "",
                 "genres": g.get("type", ""),
                 "airdate": end_dt.strftime("%Y-%m-%d") if end_dt else "unknown",
-                "box_art_url": cover,
-                "fanart": cover,
-                "poster": g.get("poster", cover),
+                "poster": poster,
                 "deep_link": g.get("url", ""),
-            })
-            nintendo_entries.append({
-                "title": g.get("title", ""),
-                "box_art_url": cover,
-                "backgroundart": cover,
-                "sale_price": f"{wishlist_badge}Free · {store}" if store else f"{wishlist_badge}Free",
-                "normal_price": f"${worth:.2f}" if worth else "",
-                "percent_off": 100,
-            })
-        return {
-            "data": [header] + media_entries,
-            "on_sale": nintendo_entries,
-        }
+            }
+            if cover and cover != poster:
+                media["fanart"] = cover
+            media_entries.append(media)
+            nintendo_entries.append(_nintendo_entry(
+                title=g.get("title", ""),
+                image=cover,
+                sale_price=f"{wishlist_badge}Free · {store}" if store else f"{wishlist_badge}Free",
+                normal_price=f"${worth:.2f}" if worth else "",
+                percent_off=100,
+            ))
+        return _fit_attributes(
+            {"data": [header] + media_entries, "on_sale": nintendo_entries},
+            ("data", "on_sale"),
+            "sensor.gaming_hub_free_games_count",
+        )
 
 
 class FreeGamesValueSensor(CoordinatorEntity, SensorEntity):
@@ -336,16 +424,20 @@ class PriceTrackerDealsSensor(CoordinatorEntity, SensorEntity):
             )
             normal_price = f"${retail_price:.2f}" if retail_price else ""
 
-            on_sale_entries.append({
-                "title": data.get("title", ""),
-                "box_art_url": thumb,
-                "backgroundart": thumb,
-                "sale_price": sale_price,
-                "normal_price": normal_price,
-                "percent_off": int(discount),
-            })
+            on_sale_entries.append(_nintendo_entry(
+                title=data.get("title", ""),
+                image=thumb,
+                sale_price=sale_price,
+                normal_price=normal_price,
+                percent_off=int(discount),
+            ))
 
-        return {"on_sale": on_sale_entries}
+        # No fixed cap here: every entry is a game the user explicitly watchlisted.
+        return _fit_attributes(
+            {"on_sale": on_sale_entries},
+            ("on_sale",),
+            "sensor.gaming_hub_price_tracker_deals",
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -365,10 +457,17 @@ class GamingHubDealsSensor(SensorEntity):
     _attr_icon = "mdi:tag-multiple-outline"
     _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, entry_id: str, fg_coordinator=None, pt_coordinator=None) -> None:
+    def __init__(
+        self,
+        entry_id: str,
+        fg_coordinator=None,
+        pt_coordinator=None,
+        max_items: int = DEFAULT_FREE_GAMES_MAX_ITEMS,
+    ) -> None:
         self._attr_device_info = _device_info(entry_id)
         self._fg = fg_coordinator
         self._pt = pt_coordinator
+        self._max_items = max_items
         self._unsubs: list = []
 
     async def async_added_to_hass(self) -> None:
@@ -380,25 +479,31 @@ class GamingHubDealsSensor(SensorEntity):
         for unsub in self._unsubs:
             unsub()
 
-    def _build_entries(self) -> list[dict]:
+    def _build_entries(self, limit: int | None = None) -> list[dict]:
+        """Build the entry list. `limit` caps the free-games half only.
+
+        The state stays the true total, so an automation counting deals is unaffected
+        by how many of them fit in the attributes.
+        """
         entries: list[dict] = []
 
-        # Free games (Epic + GamerPower, 100% free)
+        # Free games (Epic + GamerPower, 100% free). Capped: this list is fed by an
+        # API that returns everything currently on offer, unlike the watchlist below.
         if self._fg and self._fg.data:
-            for g in self._fg.data.get("current", []):
+            free_games = self._fg.data.get("current", [])
+            for g in free_games if limit is None else free_games[:limit]:
                 in_wishlist = g.get("in_steam_wishlist", False)
                 badge = "⭐ " if in_wishlist else ""
                 store = g.get("store") or g.get("platform", "")
                 worth = g.get("worth")
                 cover = g.get("cover", "")
-                entries.append({
-                    "title": g.get("title", ""),
-                    "box_art_url": cover,
-                    "backgroundart": cover,
-                    "sale_price": f"{badge}Free · {store}" if store else f"{badge}Free",
-                    "normal_price": f"${worth:.2f}" if worth else "",
-                    "percent_off": 100,
-                })
+                entries.append(_nintendo_entry(
+                    title=g.get("title", ""),
+                    image=cover,
+                    sale_price=f"{badge}Free · {store}" if store else f"{badge}Free",
+                    normal_price=f"${worth:.2f}" if worth else "",
+                    percent_off=100,
+                ))
 
         # Price tracker watchlist (ITAD / CheapShark)
         if self._pt and self._pt.data:
@@ -414,14 +519,13 @@ class GamingHubDealsSensor(SensorEntity):
                 thumb = data.get("thumb") or ""
                 badge = "⭐ " if in_wishlist else ""
                 price_str = f"${best_price:.2f}" if best_price is not None else "N/A"
-                entries.append({
-                    "title": data.get("title", ""),
-                    "box_art_url": thumb,
-                    "backgroundart": thumb,
-                    "sale_price": f"{badge}{price_str} · {best_store}",
-                    "normal_price": f"${retail_price:.2f}" if retail_price else "",
-                    "percent_off": int(discount),
-                })
+                entries.append(_nintendo_entry(
+                    title=data.get("title", ""),
+                    image=thumb,
+                    sale_price=f"{badge}{price_str} · {best_store}",
+                    normal_price=f"${retail_price:.2f}" if retail_price else "",
+                    percent_off=int(discount),
+                ))
 
         return entries
 
@@ -431,7 +535,11 @@ class GamingHubDealsSensor(SensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict:
-        return {"on_sale": self._build_entries()}
+        return _fit_attributes(
+            {"on_sale": self._build_entries(limit=self._max_items)},
+            ("on_sale",),
+            "sensor.gaming_hub_deals",
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -509,7 +617,11 @@ class WishlistDealsSensor(CoordinatorEntity, SensorEntity):
                 "percent_off": int(data.get("discount_pct", 0)),
                 "historical_low": data.get("historical_low", False),
             })
-        return {"on_sale": entries}
+        return _fit_attributes(
+            {"on_sale": entries},
+            ("on_sale",),
+            "sensor.gaming_hub_wishlist_games_on_sale",
+        )
 
 
 # ---------------------------------------------------------------------------

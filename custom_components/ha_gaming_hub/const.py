@@ -18,11 +18,25 @@ CONF_STEAM_IDS = "steam_ids"
 CONF_STEAM_WISHLIST_ID = "steam_wishlist_id"
 CONF_XBOX_ACCOUNTS = "xbox_accounts"
 CONF_PSN_ACCOUNTS = "psn_accounts"
+CONF_FREE_GAMES_TYPES = "free_games_types"
+CONF_FREE_GAMES_MAX_ITEMS = "free_games_max_items"
 
 # Default polling intervals (seconds)
 DEFAULT_SCAN_INTERVAL_FREE_GAMES = 3600
 DEFAULT_SCAN_INTERVAL_PRICE_TRACKER = 21600
 DEFAULT_SCAN_INTERVAL_PRESENCE = 300
+
+# Free Games giveaway types.
+# GamerPower lists mostly DLC/loot key giveaways; only "game" and "early_access"
+# are actual free games, which is what the Free Games module is about.
+FREE_GAME_TYPES = ["game", "early_access", "dlc", "loot", "other"]
+DEFAULT_FREE_GAMES_TYPES = ["game", "early_access"]
+
+# Hard cap on how many entries land in the state attributes of the list sensors.
+# The recorder refuses to persist attributes above MAX_STATE_ATTRS_BYTES, so an
+# unbounded list silently loses its history. See _fit_attributes() in sensor.py.
+DEFAULT_FREE_GAMES_MAX_ITEMS = 30
+MAX_STATE_ATTRS_BYTES = 16384
 
 # API endpoints
 EPIC_FREE_GAMES_URL = "https://store-site-backend-static.ak.epicgames.com/freeGamesPromotions"
