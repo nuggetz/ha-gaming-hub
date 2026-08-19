@@ -20,11 +20,13 @@ def _primary_store(platforms_str: str) -> str:
     return parts[0] if parts else "Free"
 
 
+# "early access" is a real free game, not a DLC/loot key — it gets its own type so
+# the Free Games module can include it while filtering the rest out.
 _TYPE_MAP = {
     "game": "game",
     "dlc": "dlc",
     "loot": "loot",
-    "early access": "other",
+    "early access": "early_access",
     "beta": "other",
     "alpha": "other",
     "other": "other",

@@ -34,8 +34,13 @@ from .const import (
     CONF_STEAM_WISHLIST_ID,
     CONF_XBOX_ACCOUNTS,
     CONF_PSN_ACCOUNTS,
+    CONF_FREE_GAMES_TYPES,
+    CONF_FREE_GAMES_MAX_ITEMS,
     DEFAULT_SCAN_INTERVAL_FREE_GAMES,
     DEFAULT_SCAN_INTERVAL_PRICE_TRACKER,
+    FREE_GAME_TYPES,
+    DEFAULT_FREE_GAMES_TYPES,
+    DEFAULT_FREE_GAMES_MAX_ITEMS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -111,6 +116,12 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._data[SCAN_INTERVAL_FREE_GAMES_KEY] = user_input.get(
                 SCAN_INTERVAL_FREE_GAMES_KEY, DEFAULT_SCAN_INTERVAL_FREE_GAMES
             )
+            self._data[CONF_FREE_GAMES_TYPES] = (
+                user_input.get(CONF_FREE_GAMES_TYPES) or DEFAULT_FREE_GAMES_TYPES
+            )
+            self._data[CONF_FREE_GAMES_MAX_ITEMS] = int(
+                user_input.get(CONF_FREE_GAMES_MAX_ITEMS, DEFAULT_FREE_GAMES_MAX_ITEMS)
+            )
             wishlist_id = user_input.get(CONF_STEAM_WISHLIST_ID, "").strip()
             api_key = user_input.get(CONF_STEAM_API_KEY, "").strip()
             if wishlist_id:
@@ -138,6 +149,23 @@ class GamingHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         unit_of_measurement="seconds",
                         mode=NumberSelectorMode.BOX,
                     )
+                ),
+                vol.Optional(
+                    CONF_FREE_GAMES_TYPES,
+                    default=self._data.get(CONF_FREE_GAMES_TYPES, DEFAULT_FREE_GAMES_TYPES),
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        options=FREE_GAME_TYPES,
+                        multiple=True,
+                        mode=SelectSelectorMode.LIST,
+                        translation_key=CONF_FREE_GAMES_TYPES,
+                    )
+                ),
+                vol.Optional(
+                    CONF_FREE_GAMES_MAX_ITEMS,
+                    default=self._data.get(CONF_FREE_GAMES_MAX_ITEMS, DEFAULT_FREE_GAMES_MAX_ITEMS),
+                ): NumberSelector(
+                    NumberSelectorConfig(min=5, max=100, step=5, mode=NumberSelectorMode.BOX)
                 ),
                 vol.Optional(CONF_STEAM_API_KEY, default=prefilled_api_key): TextSelector(
                     TextSelectorConfig(type=TextSelectorType.PASSWORD)

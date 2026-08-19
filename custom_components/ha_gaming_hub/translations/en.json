@@ -10,9 +10,11 @@
       },
       "free_games": {
         "title": "Free Games — Configuration",
-        "description": "Configure the Free Games module. Sources: Epic Games Store and GamerPower. No API key required.\n\nOptional: enter your Steam API Key and SteamID64 to mark free games that are also in your Steam wishlist with a ⭐ badge.",
+        "description": "Configure the Free Games module. Sources: Epic Games Store and GamerPower. No API key required.\n\nOptional: enter your Steam API Key and SteamID64 to mark free games that are also in your Steam wishlist with a ⭐ badge.\n\nGamerPower lists every PC giveaway, and most of them are DLC or loot keys rather than free games. Leave the type filter on its default to count only actual games.",
         "data": {
           "scan_interval_free_games": "Polling interval (seconds)",
+          "free_games_types": "Giveaway types to include",
+          "free_games_max_items": "Max entries in card attributes",
           "steam_api_key": "Steam API Key (optional, for wishlist badge)",
           "steam_wishlist_id": "Your SteamID64 (optional, for wishlist badge)"
         }
@@ -90,6 +92,17 @@
     },
     "error": {
       "no_results": "No games found for that title. Submit to go back and try again."
+    }
+  },
+  "selector": {
+    "free_games_types": {
+      "options": {
+        "game": "Games",
+        "early_access": "Early access",
+        "dlc": "DLC",
+        "loot": "In-game loot",
+        "other": "Other (beta, alpha, …)"
+      }
     }
   }
 }

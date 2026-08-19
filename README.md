@@ -12,6 +12,23 @@ A HACS custom integration for Home Assistant that brings gaming data into your s
 
 ---
 
+> ### What's new in 0.4.0
+>
+> **Free Games now counts games, not DLC keys.** GamerPower lists every PC giveaway and about 80% of
+> them are DLC or in-game loot drops, so `sensor.gaming_hub_free_games_count` was reporting ~96 "free
+> games" when roughly 20 actually were. A new **Giveaway types** option filters them, defaulting to
+> real games only — **expect the count to drop sharply after upgrading.** Add `dlc` and `loot` under
+> **Reconfigure → Free Games** to get the old behaviour back.
+>
+> **The recorder can persist these entities again.** The attribute payloads were 4× over Home
+> Assistant's 16 KB limit, which meant the recorder stored *no* attributes for them at all and their
+> history came back empty after every restart. They now sit comfortably under it. See
+> [Why the attribute lists are capped](#why-the-attribute-lists-are-capped).
+>
+> Full details in the [CHANGELOG](CHANGELOG.md).
+
+---
+
 ## Modules
 
 | Module | Description | API Key Required |
@@ -100,6 +117,8 @@ The integration reads game titles directly from the `steam_wishlist` entities al
 - **Epic Games Store** — official free game promotions (current + upcoming), with cover art
 - **GamerPower** — aggregator for PC giveaways across Steam, GOG, Itch.io, and more (Epic excluded to avoid duplicates)
 
+GamerPower lists *every* PC giveaway, and on a typical day around 80% of them are DLC or in-game loot keys rather than free games. The **Giveaway types** option controls what counts: by default only `game` and `early_access` are included, so `sensor.gaming_hub_free_games_count` reports actual games. Add `dlc`, `loot`, or `other` if you want the full firehose.
+
 ### Dashboard cards
 
 `sensor.gaming_hub_free_games_count` exposes two attributes: `data` (Upcoming Media Card) and `on_sale` (Nintendo Wishlist Card).
@@ -144,8 +163,8 @@ content: >
 | Field | Description |
 | ----- | ----------- |
 | `title` | Game title |
-| `box_art_url` | Cover art URL |
-| `backgroundart` | Wide art URL |
+| `box_art_url` | Cover art URL — this is the image the card renders |
+| `backgroundart` | Only present when a genuinely different wide image exists. The card reads this field for truthiness alone (to pick a CSS background position), never as a URL, so a copy of `box_art_url` is not emitted here |
 | `sale_price` | `"Free · Steam"` / `"Free · Epic Games"` etc. Prefixed with ⭐ when the game is in your Steam wishlist |
 | `normal_price` | Original value (`"$X.XX"`) if known from GamerPower, otherwise empty |
 | `percent_off` | Always `100` |
@@ -160,11 +179,15 @@ content: >
 | `rating` | Platform (e.g. `Epic Games`, `PC, Steam`) |
 | `price` | `"FREE"` or `"FREE ($X.XX value)"`. Prefixed with ⭐ when in Steam wishlist |
 | `release` | Human-readable expiry, e.g. `Expires 30 Apr 2026` |
-| `genres` | Content type: `game`, `dlc`, `loot`, `other` |
+| `genres` | Content type: `game`, `early_access`, `dlc`, `loot`, `other` |
 | `airdate` | Expiry date as `YYYY-MM-DD` (or `unknown`) |
-| `box_art_url` | Wide cover art URL |
-| `poster` | Portrait cover art (falls back to wide) |
+| `poster` | Cover art. This is the image Upcoming Media Card uses by default (`image_style: poster`) |
+| `fanart` | Wide cover art, only present when it differs from `poster`. Used by `image_style: fanart`, which falls back to `poster` when absent |
 | `deep_link` | Direct URL to the store / claim page |
+
+Entries are ordered by expiry, soonest first, with undated giveaways last.
+
+> **Removed in 0.4.0:** `data[n].box_art_url`. Upcoming Media Card never read it — it uses `poster`/`fanart` — and it was a third copy of the same URL. `on_sale[n].box_art_url` is unaffected and still the image source for Nintendo Wishlist Card.
 
 ### Configuration options
 
@@ -173,8 +196,42 @@ During setup, after selecting Free Games:
 | Field | Default | Notes |
 | ----- | ------- | ----- |
 | Polling interval | 1 800 s (30 min) | Min 30 min, max 24 h |
+| Giveaway types | `game`, `early_access` | Which GamerPower giveaway types count as free games. Adding `dlc` / `loot` typically multiplies the entity count by 5 |
+| Max entries in card attributes | 30 | How many free games land in the `data` / `on_sale` attributes. Does **not** affect the sensor state, the calendar, or the expiry binary sensor — those always see the full list |
 | Steam API Key | *(empty)* | Optional — only needed if `steam_wishlist` integration is not installed |
 | SteamID64 | *(empty)* | Optional — required for ⭐ wishlist matching; pre-fills the same field in Price Tracker |
+
+To change these after setup, use **Settings → Devices & Services → HA Gaming Hub → Reconfigure**.
+
+### Why the attribute lists are capped
+
+Home Assistant's recorder refuses to persist state attributes larger than **16 KB** and logs:
+
+```
+WARNING (Recorder) [homeassistant.components.recorder.db_schema] State attributes for
+sensor.gaming_hub_free_games_count exceed maximum size of 16384 bytes. This can cause
+database performance issues; Attributes will not be stored
+```
+
+When that fires, *none* of the attributes are stored, so the entity's history comes back empty after a restart. The integration keeps itself under the limit in three ways:
+
+1. The **Giveaway types** filter, which is what actually keeps the list short.
+2. The **Max entries** cap, as a deterministic ceiling regardless of what the upstream APIs return.
+3. A final safety net that measures the serialised payload and drops trailing entries if it still would not fit. Since entries are sorted by soonest expiry, the ones dropped are the least urgent. It logs at `debug` level when it trims.
+
+Watchlist-driven sensors (`price_tracker_deals`, `wishlist_games_on_sale`) get the safety net but no fixed cap — every entry there is a game you explicitly added.
+
+If you would rather keep an uncapped payload and simply not record it, exclude the entity in `configuration.yaml` instead:
+
+```yaml
+recorder:
+  exclude:
+    entities:
+      - sensor.gaming_hub_free_games_count
+      - sensor.gaming_hub_deals
+```
+
+This silences the warning and keeps the full list live in the UI, at the cost of no history for those entities.
 
 ---
 
@@ -563,3 +620,5 @@ title: Wishlist On Sale
 | 3 | Presence module (Steam + Xbox) | ✅ Done |
 | 4 | Events, helper sensors & reconfigure | ✅ Done |
 | 5 | PSN presence, score/cost-per-hour sensors, services, deals calendar, session tracking | ✅ Done |
+
+Release history and upgrade notes live in the [CHANGELOG](CHANGELOG.md).
